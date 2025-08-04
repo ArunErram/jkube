@@ -1,4 +1,0 @@
-apiVersion: custom.jkube.eclipse.org/v1
-kind: NotAPod
-metadata:
-  name: not-a-pod

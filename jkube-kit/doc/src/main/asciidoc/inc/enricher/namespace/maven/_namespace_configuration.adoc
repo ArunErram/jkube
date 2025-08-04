@@ -1,8 +1,0 @@
-[source,xml]
-----
-<configuration>
-    <resources>
-        <namespace>mynamespace</namespace>
-    </resources>
-</configuration>
-----

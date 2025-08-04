@@ -1,2 +1,0 @@
-| <<jkube-openshift-deploymentconfig>>
-| Enriches that converts existing Deployment object to DeploymentConfig.

@@ -1,8 +1,0 @@
-{
-  "registry": "the-registry",
-  "settings": [
-    {"id":  "server-1", "username":  "the-user"}
-  ],
-  "skipExtendedAuth": true,
-  "authConfig": null
-}

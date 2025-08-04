@@ -1,5 +1,0 @@
-{
-  "kind": "CronTab",
-  "apiVersion": "custom-cron-tab.example.com/v1",
-  "filenameTypes": "crontab,cr"
-}
