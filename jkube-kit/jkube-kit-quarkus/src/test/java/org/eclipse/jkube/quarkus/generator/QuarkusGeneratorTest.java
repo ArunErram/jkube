@@ -13,14 +13,17 @@
  */
 package org.eclipse.jkube.quarkus.generator;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.stream.Stream;
 
@@ -70,6 +73,7 @@ class QuarkusGeneratorTest {
   private Properties projectProps;
   private JavaProject project;
   private GeneratorContext ctx;
+  private ByteArrayOutputStream out;
 
   @BeforeEach
   void setUp() throws IOException {
@@ -77,6 +81,7 @@ class QuarkusGeneratorTest {
     projectProps = new Properties();
     projectProps.put("jkube.generator.name", "quarkus");
     targetDir = Files.createDirectory(temporaryFolder.resolve("target")).toFile();
+    out = new ByteArrayOutputStream();
     project = JavaProject.builder()
       .version("0.0.1-SNAPSHOT")
       .baseDirectory(targetDir)
@@ -86,11 +91,28 @@ class QuarkusGeneratorTest {
       .outputDirectory(targetDir)
       .build();
     ctx = GeneratorContext.builder()
-      .logger(new KitLogger.SilentLogger())
+      .logger(new KitLogger.PrintStreamLogger(new PrintStream(out)))
       .project(project)
       .config(config)
       .strategy(JKubeBuildStrategy.s2i)
       .build();
+  }
+
+  @Test
+  void constructorShouldLogQuarkusApplicationConfigPath() {
+    // Given
+    ctx = ctx.toBuilder()
+      .project(project.toBuilder()
+        .compileClassPathElement(Objects.requireNonNull(getClass().getResource("/generator-extract-ports")).getPath())
+        .build())
+      .build();
+    // When
+    QuarkusGenerator quarkusGenerator = new QuarkusGenerator(ctx);
+    // Then
+    assertThat(quarkusGenerator).isNotNull();
+    assertThat(out.toString())
+      .contains("quarkus: Quarkus Application Config loaded from: " +
+        QuarkusGeneratorTest.class.getResource("/generator-extract-ports/application.properties"));
   }
 
   @Nested
@@ -307,21 +329,21 @@ class QuarkusGeneratorTest {
         .hasFieldOrPropertyWithValue("targetDir", "/deployments")
         .hasFieldOrPropertyWithValue("excludeFinalOutputArtifact", true)
         .extracting(AssemblyConfiguration::getLayers)
-        .asList().hasSize(2)
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).hasSize(2)
         .satisfies(layers -> assertThat(layers).first().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
           .hasFieldOrPropertyWithValue("id", "lib")
           .extracting(Assembly::getFileSets)
-          .asList().singleElement()
+          .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).singleElement()
           .hasFieldOrPropertyWithValue("outputDirectory", new File("."))
-          .extracting("includes").asList()
+          .extracting("includes").asInstanceOf(InstanceOfAssertFactories.list(String.class))
           .containsExactly("lib"))
         .satisfies(layers -> assertThat(layers).element(1).asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
           .hasFieldOrPropertyWithValue("id", "fast-jar")
           .extracting(Assembly::getFileSets)
-          .asList().singleElement()
+          .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).singleElement()
           .hasFieldOrPropertyWithValue("outputDirectory", new File("."))
           .hasFieldOrPropertyWithValue("excludes", Arrays.asList("lib/**/*", "lib/*"))
-          .extracting("includes").asList()
+          .extracting("includes").asInstanceOf(InstanceOfAssertFactories.list(String.class))
           .containsExactly("quarkus-run.jar", "*", "**/*"));
     }
 
@@ -345,9 +367,9 @@ class QuarkusGeneratorTest {
         .extracting(BuildConfiguration::getAssembly)
         .hasFieldOrPropertyWithValue("targetDir", "/")
         .extracting(AssemblyConfiguration::getLayers)
-        .asList().singleElement().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).singleElement().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
         .extracting(Assembly::getFileSets)
-        .asList()
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
         .hasSize(1)
         .flatExtracting("includes")
         .containsExactly("sample-runner");
@@ -368,9 +390,9 @@ class QuarkusGeneratorTest {
         .extracting(BuildConfiguration::getAssembly)
         .hasFieldOrPropertyWithValue("targetDir", "/")
         .extracting(AssemblyConfiguration::getLayers)
-        .asList().singleElement().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).singleElement().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
         .extracting(Assembly::getFileSets)
-        .asList()
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
         .hasSize(1)
         .flatExtracting("includes")
         .containsExactly("sample-runner");
@@ -393,18 +415,18 @@ class QuarkusGeneratorTest {
         .hasFieldOrPropertyWithValue("targetDir", "/deployments")
         .hasFieldOrPropertyWithValue("excludeFinalOutputArtifact", true)
         .extracting(AssemblyConfiguration::getLayers)
-        .asList().hasSize(2)
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).hasSize(2)
         .satisfies(layers -> assertThat(layers).first().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
           .hasFieldOrPropertyWithValue("id", "lib")
           .extracting(Assembly::getFileSets)
-          .asList()
+          .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
           .hasSize(1)
           .flatExtracting("includes")
           .containsExactly("lib"))
         .satisfies(layers -> assertThat(layers).element(1).asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
           .hasFieldOrPropertyWithValue("id", "artifact")
           .extracting(Assembly::getFileSets)
-          .asList()
+          .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
           .hasSize(1)
           .flatExtracting("includes")
           .containsExactly("sample-legacy-runner.jar"));
@@ -439,9 +461,9 @@ class QuarkusGeneratorTest {
         .extracting(BuildConfiguration::getAssembly)
         .hasFieldOrPropertyWithValue("targetDir", "/deployments")
         .extracting(AssemblyConfiguration::getLayers)
-        .asList().singleElement().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).singleElement().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
         .extracting(Assembly::getFileSets)
-        .asList()
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
         .hasSize(1)
         .flatExtracting("includes")
         .containsExactly("sample-runner.jar");
@@ -465,21 +487,21 @@ class QuarkusGeneratorTest {
         .hasFieldOrPropertyWithValue("targetDir", "/deployments")
         .hasFieldOrPropertyWithValue("excludeFinalOutputArtifact", true)
         .extracting(AssemblyConfiguration::getLayers)
-        .asList().hasSize(2)
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).hasSize(2)
         .satisfies(layers -> assertThat(layers).first().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
           .hasFieldOrPropertyWithValue("id", "lib")
           .extracting(Assembly::getFileSets)
-          .asList().singleElement()
+          .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).singleElement()
           .hasFieldOrPropertyWithValue("outputDirectory", new File("."))
-          .extracting("includes").asList()
+          .extracting("includes").asInstanceOf(InstanceOfAssertFactories.list(String.class))
           .containsExactly("lib"))
         .satisfies(layers -> assertThat(layers).element(1).asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
           .hasFieldOrPropertyWithValue("id", "fast-jar")
           .extracting(Assembly::getFileSets)
-          .asList().singleElement()
+          .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).singleElement()
           .hasFieldOrPropertyWithValue("outputDirectory", new File("."))
           .hasFieldOrPropertyWithValue("excludes", Arrays.asList("lib/**/*", "lib/*"))
-          .extracting("includes").asList()
+          .extracting("includes").asInstanceOf(InstanceOfAssertFactories.list(String.class))
           .containsExactly("quarkus-run.jar", "*", "**/*"));
     }
 

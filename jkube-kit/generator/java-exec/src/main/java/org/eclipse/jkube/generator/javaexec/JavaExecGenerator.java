@@ -141,6 +141,7 @@ public class JavaExecGenerator extends BaseGenerator {
     protected BuildConfiguration.BuildConfigurationBuilder initImageBuildConfiguration(boolean prePackagePhase) {
       final BuildConfiguration.BuildConfigurationBuilder buildBuilder = BuildConfiguration.builder();
       addSchemaLabels(buildBuilder, log);
+      addLabelsFromConfig(buildBuilder);
       addFrom(buildBuilder);
       if (!prePackagePhase) {
         // Only add assembly if not in a pre-package phase where the referenced files
@@ -154,7 +155,6 @@ public class JavaExecGenerator extends BaseGenerator {
       addJolokiaPort(buildBuilder);
       addPrometheusPort(buildBuilder);
 
-      addLatestTagIfSnapshot(buildBuilder);
       addTagsFromConfig(buildBuilder);
       buildBuilder.workdir(getBuildWorkdir());
       buildBuilder.entryPoint(getBuildEntryPoint());

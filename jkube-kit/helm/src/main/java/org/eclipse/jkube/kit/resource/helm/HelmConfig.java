@@ -25,6 +25,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jkube.kit.common.Maintainer;
 
 import java.io.File;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -33,8 +34,6 @@ import java.util.stream.Stream;
 
 /**
  * Configuration for a helm chart
- * @author roland
- * @since 11/08/16
  */
 @Builder(toBuilder = true)
 @AllArgsConstructor
@@ -67,10 +66,25 @@ public class HelmConfig {
   private String outputDir;
   private String tarballOutputDir;
   private String tarFileClassifier;
-  private List<GeneratedChartListener> generatedChartListeners;
+  @Builder.Default
+  private List<GeneratedChartListener> generatedChartListeners = new ArrayList<>();
   private HelmRepository stableRepository;
   private HelmRepository snapshotRepository;
   private String security;
+  private boolean lintStrict;
+  private boolean lintQuiet;
+  private boolean debug;
+  private boolean dependencyVerify;
+  private boolean dependencySkipRefresh;
+  private String releaseName;
+  private boolean installDependencyUpdate;
+  private boolean installWaitReady;
+  private boolean disableOpenAPIValidation;
+  /**
+   * Timeout in seconds
+   */
+  private int testTimeout;
+
 
   @JsonProperty("dependencies")
   private List<HelmDependency> dependencies;
@@ -85,6 +99,7 @@ public class HelmConfig {
     setTypes(HelmType.parseString(types));
   }
 
+  @Getter
   public enum HelmType {
     KUBERNETES("helm", "kubernetes", "kubernetes", "Kubernetes"),
     OPENSHIFT("helmshift", "openshift","openshift", "OpenShift");
@@ -99,22 +114,6 @@ public class HelmConfig {
       this.sourceDir = sourceDir;
       this.outputDir = outputDir;
       this.description = description;
-    }
-
-    public String getClassifier() {
-      return classifier;
-    }
-
-    public String getSourceDir() {
-      return sourceDir;
-    }
-
-    public String getOutputDir() {
-      return outputDir;
-    }
-
-    public String getDescription() {
-      return description;
     }
 
     public static List<HelmType> parseString(String types) {

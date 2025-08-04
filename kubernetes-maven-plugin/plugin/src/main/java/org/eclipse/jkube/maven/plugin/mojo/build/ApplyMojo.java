@@ -226,7 +226,7 @@ public class ApplyMojo extends AbstractJKubeMojo implements ManifestProvider {
         applyService.setRollingUpgradePreserveScale(isRollingUpgradePreserveScale());
         applyService.setRecreateMode(recreate);
         applyService.setNamespace(namespace);
-        applyService.setFallbackNamespace(resolveFallbackNamespace(resources, clusterAccess));
+        applyService.setFallbackNamespace(resolveFallbackNamespace(resources, clusterConfiguration));
 
         boolean openShift = OpenshiftHelper.isOpenShift(kubernetes);
         if (openShift) {

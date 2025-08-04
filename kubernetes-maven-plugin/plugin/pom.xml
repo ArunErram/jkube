@@ -21,7 +21,7 @@
     <parent>
       <groupId>org.eclipse.jkube</groupId>
       <artifactId>kubernetes-maven-plugin-parent</artifactId>
-      <version>1.16-SNAPSHOT</version>
+      <version>1.19-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -69,6 +69,11 @@
       <dependency>
         <groupId>org.eclipse.jkube</groupId>
         <artifactId>jkube-kit-generator-java-exec</artifactId>
+      </dependency>
+
+      <dependency>
+        <groupId>org.eclipse.jkube</groupId>
+        <artifactId>jkube-kit-generator-dockerfile-simple</artifactId>
       </dependency>
 
       <dependency>
@@ -152,6 +157,24 @@
         <artifactId>jkube-kit-remote-dev</artifactId>
       </dependency>
 
+        <dependency>
+            <groupId>org.eclipse.jkube</groupId>
+            <artifactId>jkube-kit-common</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+        </dependency>
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>mockwebserver</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>openshift-server-mock</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>kube-api-test</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
@@ -248,4 +271,27 @@
 
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>java-8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
+            <build>
+                <plugins>
+                      <plugin>
+                          <artifactId>maven-compiler-plugin</artifactId>
+                          <configuration combine.self="override">
+                              <testExcludes>
+                                  <testExclude>**/HelmInstallMojoTest.java</testExclude>
+                                  <testExclude>**/HelmTestMojoTest.java</testExclude>
+                                  <testExclude>**/HelmUninstallMojoTest.java</testExclude>
+                              </testExcludes>
+                          </configuration>
+                      </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -14,6 +14,7 @@
 package org.eclipse.jkube.enricher.generic;
 
 import io.fabric8.kubernetes.api.builder.TypedVisitor;
+import io.fabric8.kubernetes.api.model.HasMetadata;
 import io.fabric8.kubernetes.api.model.KubernetesListBuilder;
 import io.fabric8.kubernetes.api.model.ObjectMeta;
 import io.fabric8.kubernetes.api.model.ObjectMetaBuilder;
@@ -27,11 +28,15 @@ import org.eclipse.jkube.kit.enricher.api.BaseEnricher;
 import org.eclipse.jkube.kit.enricher.api.JKubeEnricherContext;
 import org.eclipse.jkube.kit.enricher.api.util.SecretConstants;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.jkube.kit.enricher.api.model.Configuration;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
+import java.util.Collections;
+import java.util.Optional;
+import java.util.Set;
+import java.util.stream.Collectors;
 public abstract class SecretEnricher extends BaseEnricher {
 
     public SecretEnricher(JKubeEnricherContext buildContext, String name) {
@@ -75,16 +80,15 @@ public abstract class SecretEnricher extends BaseEnricher {
     private void addSecretsFromXmlConfiguration(KubernetesListBuilder builder) {
         log.verbose("Adding secrets resources from plugin configuration");
         List<SecretConfig> secrets = getSecretsFromXmlConfig();
-        Map<String, Integer> secretToIndexMap = new HashMap<>();
-        if (secrets == null || secrets.isEmpty()) {
+        if (secrets.isEmpty()) {
             return;
         }
 
-        for(Integer index = 0; index < builder.buildItems().size(); index++) {
-            if(builder.buildItems().get(index) instanceof Secret) {
-                secretToIndexMap.put(builder.buildItems().get(index).getMetadata().getName(), index);
-            }
-        }
+        Set<String> secretNamesPresentInBuilder = builder.buildItems().stream()
+            .filter(Secret.class::isInstance)
+            .map(HasMetadata::getMetadata)
+            .map(ObjectMeta::getName)
+            .collect(Collectors.toSet());
 
         for (int i = 0; i < secrets.size(); i++) {
             SecretConfig secretConfig = secrets.get(i);
@@ -121,18 +125,17 @@ public abstract class SecretEnricher extends BaseEnricher {
             }
 
             Secret secret = new SecretBuilder().withData(data).withMetadata(metadata).withType(type).build();
-            if(!secretToIndexMap.containsKey(secretConfig.getName())) {
+            if(!secretNamesPresentInBuilder.contains(secretConfig.getName())) {
                 builder.addToItems(i, secret);
             }
         }
     }
 
     private List<SecretConfig> getSecretsFromXmlConfig() {
-        ResourceConfig resourceConfig = getConfiguration().getResource();
-        if(resourceConfig != null && resourceConfig.getSecrets() != null) {
-            return resourceConfig.getSecrets();
-        }
-        return null;
+        return Optional.ofNullable(getConfiguration())
+                .map(Configuration::getResource)
+                .map(ResourceConfig::getSecrets)
+                .orElse(Collections.emptyList());
     }
 
     private String getDockerIdFromAnnotation(Map<String, String> annotation) {

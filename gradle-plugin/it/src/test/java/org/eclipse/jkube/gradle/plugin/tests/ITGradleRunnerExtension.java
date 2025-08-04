@@ -23,6 +23,7 @@ import java.io.File;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.List;
 import java.util.stream.Collectors;
 
 public class ITGradleRunnerExtension implements BeforeEachCallback, AfterEachCallback {
@@ -31,14 +32,14 @@ public class ITGradleRunnerExtension implements BeforeEachCallback, AfterEachCal
   @Override
   public void beforeEach(ExtensionContext context) throws Exception {
     gradleRunner = GradleRunner.create()
-        .withGradleDistribution(new URI("https://services.gradle.org/distributions/gradle-8.2.1-bin.zip"))
+        .withGradleDistribution(new URI("https://services.gradle.org/distributions/gradle-8.8-bin.zip"))
         .withDebug(true)
         .withPluginClasspath(Arrays.stream(System.getProperty("java.class.path").split(File.pathSeparator))
             .map(File::new).collect(Collectors.toList()));
   }
 
   @Override
-  public void afterEach(ExtensionContext context) throws Exception {
+  public void afterEach(ExtensionContext context) {
     gradleRunner = null;
   }
 
@@ -55,6 +56,15 @@ public class ITGradleRunnerExtension implements BeforeEachCallback, AfterEachCal
     arguments[1] = "--console=plain";
     System.arraycopy(originalArguments, 0, arguments, 2, originalArguments.length);
     gradleRunner = gradleRunner.withArguments(arguments);
+    return this;
+  }
+
+  public List<? extends File> pluginClassPath() {
+    return gradleRunner.getPluginClasspath();
+  }
+
+  public ITGradleRunnerExtension withPluginClassPath(Iterable<? extends File> pluginClassPath) {
+    gradleRunner = gradleRunner.withPluginClasspath(pluginClassPath);
     return this;
   }
 

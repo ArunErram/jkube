@@ -60,7 +60,7 @@ class JavaExecGeneratorCustomPropertiesTest {
         .hasFieldOrPropertyWithValue("alias", "java-exec")
         .extracting(ImageConfiguration::getBuildConfiguration)
         .hasFieldOrPropertyWithValue("from", "custom-image")
-        .hasFieldOrPropertyWithValue("tags", Collections.singletonList("latest"))
+        .hasFieldOrPropertyWithValue("tags", Collections.emptyList())
         .hasFieldOrPropertyWithValue("env", new HashMap<String, String>(){{
           put("JAVA_APP_DIR", "/other-dir");
           put("JAVA_MAIN_CLASS", "com.example.Main");
@@ -100,5 +100,21 @@ class JavaExecGeneratorCustomPropertiesTest {
         .hasFieldOrPropertyWithValue("ports", Arrays.asList("8080", "8778"))
         .extracting(BuildConfiguration::getEnv)
         .hasFieldOrPropertyWithValue("AB_PROMETHEUS_OFF", "true");
+  }
+
+  @Test
+  void customize_withCustomLabels_shouldAddLabels() {
+    // Given
+    projectProperties.put("jkube.generator.java-exec.labels", "app=MyApp,version=1.0");
+    projectProperties.put("jkube.generator.java-exec.mainClass", "com.example.Main");
+    // When
+    final List<ImageConfiguration> result = new JavaExecGenerator(generatorContext)
+        .customize(new ArrayList<>(), false);
+    // Then
+    assertThat(result).singleElement()
+        .extracting(ImageConfiguration::getBuildConfiguration)
+        .extracting(BuildConfiguration::getLabels)
+        .hasFieldOrPropertyWithValue("app", "MyApp")
+        .hasFieldOrPropertyWithValue("version", "1.0");
   }
 }

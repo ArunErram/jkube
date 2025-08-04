@@ -28,14 +28,12 @@ tasks.withType(JavaCompile) {
 }
 
 ext {
-    helidonversion = '2.6.0'
+    helidonversion = '2.6.7'
     mainClass='io.helidon.microprofile.cdi.Main'
 }
 
 repositories {
-    mavenLocal()
     mavenCentral()
-    gradlePluginPortal()
 }
 
 dependencies {

@@ -37,12 +37,12 @@ public class Serialization {
   private static final ObjectMapper JSON_MAPPER = new ObjectMapper();
   private static final ObjectMapper YAML_MAPPER = new ObjectMapper(new YAMLFactory()
     .configure(YAMLGenerator.Feature.MINIMIZE_QUOTES, true)
+    .configure(YAMLGenerator.Feature.USE_PLATFORM_LINE_BREAKS, true)
     .configure(YAMLGenerator.Feature.ALWAYS_QUOTE_NUMBERS_AS_STRINGS, true));
   private static final KubernetesSerialization KUBERNETES_SERIALIZATION = new KubernetesSerialization(JSON_MAPPER, true);
   static {
     for (ObjectMapper mapper : new ObjectMapper[]{JSON_MAPPER, YAML_MAPPER}) {
       mapper.enable(SerializationFeature.INDENT_OUTPUT)
-        .enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS)
         .disable(SerializationFeature.WRITE_EMPTY_JSON_ARRAYS)
         .disable(SerializationFeature.WRITE_NULL_MAP_VALUES);
     }

@@ -44,4 +44,6 @@ public class ControllerResourceConfig {
   private String restartPolicy;
   private ContainerResourcesConfig containerResources;
   private String schedule;
+  private Map<String, String> nodeSelector;
+  private List<String> imagePullSecrets;
 }

@@ -31,6 +31,7 @@ import org.eclipse.jkube.kit.common.AssemblyConfiguration;
 import org.eclipse.jkube.kit.common.JavaProject;
 import org.eclipse.jkube.kit.common.KitLogger;
 import org.eclipse.jkube.kit.common.Plugin;
+import org.eclipse.jkube.kit.common.AssemblyFileSet;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
 import org.eclipse.jkube.kit.config.image.build.BuildConfiguration;
 import org.junit.jupiter.api.BeforeEach;
@@ -111,9 +112,9 @@ class JavaExecGeneratorTest {
     // Then
     assertThat(result)
         .hasFieldOrPropertyWithValue("excludeFinalOutputArtifact", false)
-        .extracting(AssemblyConfiguration::getLayers).asList().hasSize(1)
+        .extracting(AssemblyConfiguration::getLayers).asInstanceOf(InstanceOfAssertFactories.list(Assembly.class)).hasSize(1)
         .first().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
-        .extracting(Assembly::getFileSets).asList()
+        .extracting(Assembly::getFileSets).asInstanceOf(InstanceOfAssertFactories.list(AssemblyFileSet.class))
         .hasSize(2);
   }
 
@@ -132,10 +133,11 @@ class JavaExecGeneratorTest {
     // Then
     assertThat(result)
         .hasFieldOrPropertyWithValue("excludeFinalOutputArtifact", true)
-        .extracting(AssemblyConfiguration::getLayers).asList().hasSize(1)
-        .first().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
-        .extracting(Assembly::getFileSets).asList()
-        .hasSize(3)
+        .extracting(AssemblyConfiguration::getLayers)
+        .asInstanceOf(InstanceOfAssertFactories.list(AssemblyFileSet.class))
+        .hasSize(1).first().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
+        .extracting(Assembly::getFileSets)
+        .asInstanceOf(InstanceOfAssertFactories.list(AssemblyFileSet.class)).hasSize(3)
         .extracting("directory", "includes")
         .containsExactlyInAnyOrder(
             tuple(new File("src/main/jkube-includes"), Collections.emptyList()),

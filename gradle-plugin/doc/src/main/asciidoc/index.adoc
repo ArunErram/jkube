@@ -1,4 +1,4 @@
-= org.eclipse.jkube/{plugin}
+= Eclipse JKube documentation / {plugin}
 :plugin: kubernetes-gradle-plugin
 :task-prefix: k8s
 :cluster: Kubernetes
@@ -40,6 +40,8 @@ include::{kitdoc-path}/inc/plugins/_jkube_plugins.adoc[]
 include::inc/_registry.adoc[]
 
 include::inc/_authentication.adoc[]
+
+include::{kitdoc-path}/inc/_integrations.adoc[]
 
 include::{kitdoc-path}/inc/mapping-config/_index.adoc[]
 

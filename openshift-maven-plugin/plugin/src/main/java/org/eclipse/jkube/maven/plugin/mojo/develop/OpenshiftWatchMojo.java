@@ -14,7 +14,6 @@
 package org.eclipse.jkube.maven.plugin.mojo.develop;
 
 import io.fabric8.kubernetes.client.KubernetesClient;
-import org.apache.maven.artifact.DependencyResolutionRequiredException;
 import org.apache.maven.plugins.annotations.Execute;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
@@ -66,7 +65,7 @@ public class OpenshiftWatchMojo extends WatchMojo {
     }
 
     @Override
-    protected GeneratorContext.GeneratorContextBuilder generatorContextBuilder() throws DependencyResolutionRequiredException {
+    protected GeneratorContext.GeneratorContextBuilder generatorContextBuilder() {
         return super.generatorContextBuilder()
             .strategy(buildStrategy);
     }

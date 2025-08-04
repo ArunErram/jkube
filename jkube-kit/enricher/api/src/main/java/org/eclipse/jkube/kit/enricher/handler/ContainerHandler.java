@@ -28,7 +28,7 @@ import io.fabric8.kubernetes.api.model.SecurityContext;
 import io.fabric8.kubernetes.api.model.SecurityContextBuilder;
 import io.fabric8.kubernetes.api.model.VolumeMount;
 import io.fabric8.kubernetes.api.model.VolumeMountBuilder;
-import org.eclipse.jkube.kit.build.api.model.PortMapping;
+import org.eclipse.jkube.kit.common.PortMapping;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
 import org.eclipse.jkube.kit.common.util.EnvUtil;
 import org.eclipse.jkube.kit.common.util.KubernetesHelper;
@@ -42,6 +42,7 @@ import org.eclipse.jkube.kit.enricher.api.util.KubernetesResourceUtil;
 import org.apache.commons.lang3.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
 
@@ -181,7 +182,7 @@ public class ContainerHandler {
             }
             return ret;
         } else {
-            return null;
+            return Collections.emptyList();
         }
     }
 

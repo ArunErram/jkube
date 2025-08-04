@@ -13,8 +13,12 @@
  */
 package org.eclipse.jkube.kit.enricher.handler;
 
+import io.fabric8.kubernetes.api.model.LocalObjectReference;
 import io.fabric8.kubernetes.api.model.PodSpec;
 import io.fabric8.kubernetes.api.model.PodTemplateSpec;
+import io.fabric8.kubernetes.api.model.Volume;
+import io.fabric8.kubernetes.api.model.Container;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.eclipse.jkube.kit.config.image.build.BuildConfiguration;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
 import org.eclipse.jkube.kit.common.JavaProject;
@@ -25,11 +29,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.mock;
 
 class PodTemplateHandlerTest {
 
@@ -68,8 +71,8 @@ class PodTemplateHandlerTest {
                 .registry("docker.io").build();
 
         images.add(imageConfiguration);
-        probeHandler = mock(ProbeHandler.class, RETURNS_DEEP_STUBS);
-        project = mock(JavaProject.class, RETURNS_DEEP_STUBS);
+        probeHandler = new ProbeHandler();
+        project = JavaProject.builder().build();
         ContainerHandler containerHandler = getContainerHandler();
         podTemplateHandler = new PodTemplateHandler(containerHandler);
     }
@@ -86,7 +89,7 @@ class PodTemplateHandlerTest {
         assertThat(podTemplateSpec.getSpec().getVolumes()).isEmpty();
         assertThat(podTemplateSpec.getSpec())
             .extracting(PodSpec::getContainers).isNotNull()
-            .asList()
+            .asInstanceOf(InstanceOfAssertFactories.list(Container.class))
             .first()
             .hasFieldOrPropertyWithValue("name", "test-app")
             .hasFieldOrPropertyWithValue("image", "docker.io/test:latest")
@@ -104,10 +107,10 @@ class PodTemplateHandlerTest {
 
         PodTemplateSpec podTemplateSpec = podTemplateHandler.getPodTemplate(config, null, images);
         assertThat(podTemplateSpec.getSpec())
-            .hasFieldOrPropertyWithValue("serviceAccountName", null)
-            .returns(true, spec -> spec.getVolumes().isEmpty())
-            .extracting(PodSpec::getContainers)
-            .isNotNull();
+                .hasFieldOrPropertyWithValue("serviceAccountName", null)
+                .returns(true, spec -> spec.getVolumes().isEmpty())
+                .extracting(PodSpec::getContainers)
+                .isNotNull();
     }
 
     @Test
@@ -127,7 +130,8 @@ class PodTemplateHandlerTest {
 
       assertThat(podTemplateSpec.getSpec().getContainers()).isNotNull();
       assertThat(podTemplateSpec.getSpec())
-          .extracting(PodSpec::getVolumes).asList()
+          .extracting(PodSpec::getVolumes)
+          .asInstanceOf(InstanceOfAssertFactories.list(Volume.class))
           .isNotEmpty()
           .first()
           .hasFieldOrPropertyWithValue("name", "test")
@@ -184,6 +188,38 @@ class PodTemplateHandlerTest {
         // Then
         assertThat(podTemplateSpec)
             .hasFieldOrPropertyWithValue("spec.restartPolicy", "Always");
+    }
+
+    @Test
+    void gePodTemplate_withImagePullSecrets_shouldGeneratePodTemplateWithConfiguredSecretes() {
+        // Given
+        ControllerResourceConfig config = ControllerResourceConfig.builder()
+                .imagePullSecrets(Collections.singletonList("secret"))
+                .build();
+
+        // When
+        PodTemplateSpec podTemplateSpec = podTemplateHandler.getPodTemplate(config, null, images);
+
+        // Then
+        assertThat(podTemplateSpec)
+                .extracting("spec.imagePullSecrets")
+                .asInstanceOf(InstanceOfAssertFactories.list(LocalObjectReference.class))
+                .singleElement()
+                .hasFieldOrPropertyWithValue("name", "secret");
+    }
+
+    @Test
+    void getPodTemplate_withoutImagePullSecrets_shouldGeneratePodTemplateWithoutSecrets() {
+        // Given
+        ControllerResourceConfig config = ControllerResourceConfig.builder().build();
+
+        // When
+        PodTemplateSpec podTemplateSpec = podTemplateHandler.getPodTemplate(config, null, images);
+
+        // Then
+        assertThat(podTemplateSpec)
+                .extracting("spec.imagePullSecrets")
+                .isNull();
     }
 
     private ContainerHandler getContainerHandler() {

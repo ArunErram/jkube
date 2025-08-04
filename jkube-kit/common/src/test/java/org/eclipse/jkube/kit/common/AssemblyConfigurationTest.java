@@ -21,6 +21,7 @@ import java.util.List;
 
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.apache.commons.io.FileUtils;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
@@ -125,7 +126,9 @@ class AssemblyConfigurationTest {
     // Then
     assertThat(result).hasSize(1).first()
         .hasFieldOrPropertyWithValue("id", null)
-        .extracting(Assembly::getFiles).asList().hasSize(1).first()
+        .extracting(Assembly::getFiles)
+        .asInstanceOf(InstanceOfAssertFactories.list(AssemblyFile.class))
+        .singleElement()
         .hasFieldOrPropertyWithValue("destName", "test");
 
   }
@@ -142,7 +145,9 @@ class AssemblyConfigurationTest {
     // Then
     assertThat(result).hasSize(1).first()
         .hasFieldOrPropertyWithValue("id", "jkube-generated-layer-original")
-        .extracting(Assembly::getFiles).asList().hasSize(1).first()
+        .extracting(Assembly::getFiles)
+        .asInstanceOf(InstanceOfAssertFactories.list(AssemblyFile.class))
+        .singleElement()
         .hasFieldOrPropertyWithValue("destName", "test");
   }
 
@@ -183,12 +188,16 @@ class AssemblyConfigurationTest {
     assertThat(result).hasSize(2)
         .anySatisfy(layer -> assertThat(layer)
             .hasFieldOrPropertyWithValue("id", "jkube-generated-layer-original")
-            .extracting(Assembly::getFiles).asList().hasSize(1).first()
+            .extracting(Assembly::getFiles)
+            .asInstanceOf(InstanceOfAssertFactories.list(AssemblyFile.class))
+            .singleElement()
             .hasFieldOrPropertyWithValue("destName", "test")
         )
         .element(1)
         .hasFieldOrPropertyWithValue("id", "jkube-generated-layer-final-artifact")
-        .extracting(Assembly::getFiles).asList().hasSize(1).first()
+        .extracting(Assembly::getFiles)
+        .asInstanceOf(InstanceOfAssertFactories.list(AssemblyFile.class))
+        .singleElement()
         .hasFieldOrPropertyWithValue("destName", "final-artifact.jar");
   }
 
@@ -214,7 +223,9 @@ class AssemblyConfigurationTest {
     // Then
     assertThat(result.getFlattenedClone(configuration))
         .hasFieldOrPropertyWithValue("flattened", true)
-        .extracting(AssemblyConfiguration::getLayers).asList().hasSize(1).first()
+        .extracting(AssemblyConfiguration::getLayers)
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
+        .singleElement()
         .hasFieldOrPropertyWithValue("id", null)
         .hasFieldOrPropertyWithValue("fileSets", Collections.emptyList())
         .hasFieldOrPropertyWithValue("files", Collections.emptyList());
@@ -240,14 +251,16 @@ class AssemblyConfigurationTest {
     // Then
     assertThat(result.getFlattenedClone(configuration))
         .hasFieldOrPropertyWithValue("flattened", true)
-        .extracting(AssemblyConfiguration::getLayers).asList().hasSize(1)
-        .first().asInstanceOf(InstanceOfAssertFactories.type(Assembly.class))
+        .extracting(AssemblyConfiguration::getLayers)
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
+        .singleElement()
         .hasFieldOrPropertyWithValue("id", null)
         .hasFieldOrPropertyWithValue("fileSets", Arrays.asList(
             AssemblyFileSet.builder().directory(new File("target")).build(),
             AssemblyFileSet.builder().directory(new File("static")).build()
         ))
-        .extracting(Assembly::getFiles).asList()
+        .extracting(Assembly::getFiles)
+        .asInstanceOf(InstanceOfAssertFactories.list(AssemblyFile.class))
         .extracting("destName")
         .containsExactly("file.1", "file.2", "file.3", "file.old");
   }
@@ -260,8 +273,10 @@ class AssemblyConfigurationTest {
   @Test
   void rawDeserialization() throws IOException {
     // Given
-    final ObjectMapper mapper = new ObjectMapper();
-    mapper.configure(MapperFeature.USE_ANNOTATIONS, false);
+    final ObjectMapper mapper = JsonMapper.builder()
+            .configure(MapperFeature.USE_ANNOTATIONS, false)
+            .build();
+
     // When
     final AssemblyConfiguration result = mapper.readValue(
         AssemblyConfigurationTest.class.getResourceAsStream("/assembly-configuration.json"),
@@ -280,7 +295,9 @@ class AssemblyConfigurationTest {
         .hasFieldOrPropertyWithValue("user", "root")
         .hasFieldOrPropertyWithValue("tarLongFileMode", "posix")
         .hasFieldOrPropertyWithValue("flattened", false)
-        .extracting(AssemblyConfiguration::getLayers).asList().extracting("id")
+        .extracting(AssemblyConfiguration::getLayers)
+        .asInstanceOf(InstanceOfAssertFactories.list(Assembly.class))
+        .extracting("id")
         .containsExactly("multi-layer-support", "not-the-last-layer", "deprecated-single");
   }
 }

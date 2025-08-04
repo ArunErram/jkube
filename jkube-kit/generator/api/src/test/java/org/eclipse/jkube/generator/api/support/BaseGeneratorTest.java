@@ -13,11 +13,6 @@
  */
 package org.eclipse.jkube.generator.api.support;
 
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Properties;
@@ -26,6 +21,7 @@ import org.assertj.core.api.InstanceOfAssertFactories;
 import org.eclipse.jkube.generator.api.FromSelector;
 import org.eclipse.jkube.generator.api.GeneratorContext;
 import org.eclipse.jkube.kit.common.JavaProject;
+import org.eclipse.jkube.kit.common.KitLogger;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
 import org.eclipse.jkube.kit.config.image.build.BuildConfiguration;
 import org.eclipse.jkube.kit.config.resource.ProcessorConfig;
@@ -35,36 +31,28 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
 
 import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
 import static org.assertj.core.api.AssertionsForClassTypes.entry;
 import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
-
-/**
- * @author roland
- */
 
 class BaseGeneratorTest {
-  private GeneratorContext ctx;
-  private JavaProject project;
 
   private Properties properties;
+  private GeneratorContext ctx;
   private ProcessorConfig config;
 
   @BeforeEach
   void setUp() {
-    ctx = mock(GeneratorContext.class,RETURNS_DEEP_STUBS);
-    project = mock(JavaProject.class);
     properties = new Properties();
     config = new ProcessorConfig();
-
-    when(project.getProperties()).thenReturn(properties);
-    when(ctx.getProject()).thenReturn(project);
-    when(ctx.getConfig()).thenReturn(config);
+    ctx = GeneratorContext.builder()
+      .logger(new KitLogger.SilentLogger())
+      .project(JavaProject.builder()
+        .properties(properties)
+        .build())
+      .config(config)
+      .build();
   }
 
   @AfterEach
@@ -94,6 +82,29 @@ class BaseGeneratorTest {
     final String result = new TestBaseGenerator(ctx, "test-generator").getFromAsConfigured();
     // Then
     assertThat(result).isEqualTo("fromInProperties");
+  }
+
+  @Test
+  @DisplayName("get buildpacksBuilderImageAsConfigured as configured with properties and configuration, should return configured")
+  void buildpacksBuilderImageConfiguredWithPropertiesAndConfigurationShouldReturnConfig() {
+    // Given
+    properties.put("jkube.generator.buildpacksBuilderImage", "buildPackBuilderViaProperties");
+    config.getConfig().put("test-generator", Collections.singletonMap("buildpacksBuilderImage", "buildPackBuilderViaConfig"));
+    // When
+    final String result = new TestBaseGenerator(ctx, "test-generator").getBuildpacksBuilderImageAsConfigured();
+    // Then
+    assertThat(result).isEqualTo("buildPackBuilderViaConfig");
+  }
+
+  @Test
+  @DisplayName("get buildpacksBuilderImage as configured with properties, should return value in properties")
+  void buildpacksBuilderImageAsConfiguredAsConfiguredWithPropertiesShouldReturnValueInProperties() {
+    // Given
+    properties.put("jkube.generator.buildpacksBuilderImage", "buildPackBuilderViaProperties");
+    // When
+    final String result = new TestBaseGenerator(ctx, "test-generator").getBuildpacksBuilderImageAsConfigured();
+    // Then
+    assertThat(result).isEqualTo("buildPackBuilderViaProperties");
   }
 
   @Test
@@ -176,11 +187,6 @@ class BaseGeneratorTest {
     final String result = new TestBaseGenerator(ctx, "test-generator").getRegistry();
     // Then
     assertThat(result).isNull();
-  }
-
-  private TestBaseGenerator createGenerator(FromSelector fromSelector) {
-    return fromSelector != null ? new TestBaseGenerator(ctx, "test-generator", fromSelector)
-        : new TestBaseGenerator(ctx, "test-generator");
   }
 
   @Nested
@@ -314,46 +320,20 @@ class BaseGeneratorTest {
   @Test
   @DisplayName("should add default image")
   void shouldAddDefaultImage() {
-    ImageConfiguration ic1 = mock(ImageConfiguration.class);
-    ImageConfiguration ic2 = mock(ImageConfiguration.class);
-    BuildConfiguration bc = mock(BuildConfiguration.class);
-    when(ic1.getBuildConfiguration()).thenReturn(bc);
-    when(ic2.getBuildConfiguration()).thenReturn(null);
-    BaseGenerator generator = createGenerator(null);
+    BaseGenerator generator = new TestBaseGenerator(ctx, "test-generator");
     assertThat(generator)
-        .returns(true, g -> g.shouldAddGeneratedImageConfiguration(Collections.emptyList()))
-        .returns(false, g -> g.shouldAddGeneratedImageConfiguration(Arrays.asList(ic1, ic2)))
-        .returns(true, g -> g.shouldAddGeneratedImageConfiguration(Collections.singletonList(ic2)))
-        .returns(false, g -> g.shouldAddGeneratedImageConfiguration(Collections.singletonList(ic1)));
-  }
-
-  @Test
-  @DisplayName("should not add default image in case of simple dockerfile")
-  void shouldNotAddDefaultImageInCaseOfSimpleDockerfile(@TempDir Path folder) throws IOException {
-    // Given
-    File projectBaseDir = Files.createDirectory(folder.resolve("test-project-dir")).toFile();
-    File dockerFile = new File(projectBaseDir, "Dockerfile");
-    boolean isTestDockerfileCreated = dockerFile.createNewFile();
-    when(ctx.getProject()).thenReturn(project);
-    when(project.getBaseDirectory()).thenReturn(projectBaseDir);
-    // When
-    BaseGenerator generator = createGenerator(null);
-
-    // Then
-    assertThat(isTestDockerfileCreated).isTrue();
-    assertThat(generator.shouldAddGeneratedImageConfiguration(Collections.emptyList())).isFalse();
+        .returns(true, g -> g.shouldAddGeneratedImageConfiguration(Collections.emptyList()));
   }
 
   @Test
   @DisplayName("should add generated image configuration when add enabled via config, should return true")
   void shouldAddGeneratedImageConfiguration_whenAddEnabledViaConfig_shouldReturnTrue() {
     // Given
-    when(ctx.getProject()).thenReturn(project);
     properties.put("jkube.generator.test-generator.add", "true");
-    BaseGenerator generator = createGenerator(null);
 
     // When
-    boolean result = generator.shouldAddGeneratedImageConfiguration(createNewImageConfigurationList());
+    boolean result = new TestBaseGenerator(ctx, "test-generator")
+      .shouldAddGeneratedImageConfiguration(createNewImageConfigurationList());
 
     // Then
     assertThat(result).isTrue();
@@ -364,41 +344,22 @@ class BaseGeneratorTest {
   @DisplayName("should add generated image configuration when enabled via property, should return true")
   void shouldAddGeneratedImageConfiguration_whenAddEnabledViaProperty_shouldReturnTrue() {
     // Given
-    when(ctx.getProject()).thenReturn(project);
     properties.put("jkube.generator.add", "true");
-    BaseGenerator generator = createGenerator(null);
 
     // When
-    boolean result = generator.shouldAddGeneratedImageConfiguration(createNewImageConfigurationList());
+    boolean result = new TestBaseGenerator(ctx, "test-generator")
+      .shouldAddGeneratedImageConfiguration(createNewImageConfigurationList());
 
     // Then
     assertThat(result).isTrue();
   }
 
   @Test
-  @DisplayName("add latest tag if project's version is SNAPSHOT")
-  void addLatestTagIfSnapshot() {
-    when(ctx.getProject()).thenReturn(project);
-    when(project.getVersion()).thenReturn("1.2-SNAPSHOT");
-    BuildConfiguration.BuildConfigurationBuilder builder = BuildConfiguration.builder();
-    BaseGenerator generator = createGenerator(null);
-    generator.addLatestTagIfSnapshot(builder);
-    BuildConfiguration config = builder.build();
-    List<String> tags = config.getTags();
-    assertThat(tags)
-        .singleElement()
-        .asString()
-        .endsWith("latest");
-  }
-
-  @Test
   @DisplayName("add tags from config")
   void addTagsFromConfig() {
-    when(ctx.getProject()).thenReturn(project);
     BuildConfiguration.BuildConfigurationBuilder builder = BuildConfiguration.builder();
     properties.put("jkube.generator.test-generator.tags", " tag-1, tag-2 , other-tag");
-    BaseGenerator generator = createGenerator(null);
-    generator.addTagsFromConfig(builder);
+    new TestBaseGenerator(ctx, "test-generator").addTagsFromConfig(builder);
     BuildConfiguration config = builder.build();
     assertThat(config.getTags())
         .hasSize(3)
@@ -408,23 +369,35 @@ class BaseGeneratorTest {
   @Test
   @DisplayName("add tags from property")
   void addTagsFromProperty() {
-    when(ctx.getProject()).thenReturn(project);
     BuildConfiguration.BuildConfigurationBuilder builder = BuildConfiguration.builder();
     properties.put("jkube.generator.tags", " tag-1, tag-2 , other-tag");
-    BaseGenerator generator = createGenerator(null);
-    generator.addTagsFromConfig(builder);
+    new TestBaseGenerator(ctx, "test-generator").addTagsFromConfig(builder);
     BuildConfiguration config = builder.build();
     assertThat(config.getTags())
         .hasSize(3)
         .containsExactlyInAnyOrder("tag-1", "tag-2", "other-tag");
   }
 
+  @Test
+  @DisplayName("add labels from property")
+  void addLabelsFromProperty() {
+    BuildConfiguration.BuildConfigurationBuilder builder = BuildConfiguration.builder();
+    properties.put("jkube.generator.labels", " label-1=a, label-2=b , invalid-label");
+    new TestBaseGenerator(ctx, "test-generator").addLabelsFromConfig(builder);
+    assertThat(builder.build().getLabels())
+        .hasSize(2)
+        .contains(
+                entry("label-1", "a"),
+                entry("label-2", "b")
+        );
+  }
+
   private void inKubernetes() {
-    when(ctx.getRuntimeMode()).thenReturn(RuntimeMode.KUBERNETES);
+    ctx = ctx.toBuilder().runtimeMode(RuntimeMode.KUBERNETES).build();
   }
 
   private void inOpenShift() {
-    when(ctx.getRuntimeMode()).thenReturn(RuntimeMode.OPENSHIFT);
+    ctx = ctx.toBuilder().runtimeMode(RuntimeMode.OPENSHIFT).build();
   }
 
   private static class TestBaseGenerator extends BaseGenerator {

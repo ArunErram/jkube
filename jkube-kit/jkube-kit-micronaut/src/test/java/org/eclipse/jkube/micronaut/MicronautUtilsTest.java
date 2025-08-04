@@ -13,19 +13,27 @@
  */
 package org.eclipse.jkube.micronaut;
 
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Properties;
 
+import org.eclipse.jkube.kit.common.JavaProject;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.entry;
 import static org.eclipse.jkube.micronaut.MicronautUtils.extractPort;
 import static org.eclipse.jkube.micronaut.MicronautUtils.getMicronautConfiguration;
+import static org.eclipse.jkube.micronaut.MicronautUtils.hasNativeImagePackaging;
 import static org.eclipse.jkube.micronaut.MicronautUtils.isHealthEnabled;
 
 class MicronautUtilsTest {
+  @TempDir
+  private Path temporaryFolder;
 
   @Test
   void extractPortWithPort() {
@@ -66,31 +74,59 @@ class MicronautUtilsTest {
   }
 
   @Test
-  void getMicronautConfigurationPrecedence() {
+  void getMicronautConfigurationPrecedence() throws IOException {
     // Given
-    final URLClassLoader ucl = URLClassLoader.newInstance(new URL[] {
-        MicronautUtilsTest.class.getResource("/utils-test/port-config/json/"),
-        MicronautUtilsTest.class.getResource("/utils-test/port-config/yaml/"),
-        MicronautUtilsTest.class.getResource("/utils-test/port-config/properties/")
-    });
+    JavaProject javaProject = JavaProject.builder()
+      .compileClassPathElement(MicronautUtilsTest.class.getResource("/utils-test/port-config/json/").getPath())
+      .compileClassPathElement(MicronautUtilsTest.class.getResource("/utils-test/port-config/yaml/").getPath())
+      .compileClassPathElement(MicronautUtilsTest.class.getResource("/utils-test/port-config/properties/").getPath())
+      .outputDirectory(Files.createDirectory(temporaryFolder.resolve("target")).toFile())
+      .build();
     // When
-    final Properties props = getMicronautConfiguration(ucl);
+    final Properties props = getMicronautConfiguration(javaProject);
     // Then
-    assertThat(props).containsExactly(
+    assertThat(props).containsOnly(
+        entry("jkube.internal.application-config-file.path", MicronautUtilsTest.class.getResource("/utils-test/port-config/properties/application.properties")),
         entry("micronaut.application.name", "port-config-test-PROPERTIES"),
         entry("micronaut.server.port", "1337"));
   }
 
   @Test
-  void getMicronautConfigurationNoConfigFiles() {
-    // Given
-    final URLClassLoader ucl = URLClassLoader.newInstance(new URL[] {
-        MicronautUtilsTest.class.getResource("/")
-    });
-    // When
-    final Properties props = getMicronautConfiguration(ucl);
+  void getMicronautConfigurationNoConfigFiles() throws IOException {
+      // Given
+      JavaProject javaProject = JavaProject.builder()
+        .compileClassPathElement("/")
+        .outputDirectory(Files.createDirectory(temporaryFolder.resolve("target")).toFile())
+        .build();
+      // When
+      final Properties props = getMicronautConfiguration(javaProject);
     // Then
     assertThat(props).isEmpty();
   }
 
+  @ParameterizedTest
+  @CsvSource(value = {
+    "native-image,true",
+    "jar,false"
+  })
+  void hasNativeImagePackaging_whenPackagingProvided_thenShouldReturnExpectedResult(String packaging, boolean expectedValue) {
+    // Given
+    Properties properties = new Properties();
+    properties.put("packaging", packaging);
+    JavaProject javaProject = JavaProject.builder()
+      .properties(properties)
+      .build();
+    // When + Then
+    assertThat(hasNativeImagePackaging(javaProject)).isEqualTo(expectedValue);
+  }
+
+  @Test
+  void hasNativeImagePackaging_whenNativeImagePluginProvided_thenShouldReturnExpectedResult() {
+    // Given
+    JavaProject javaProject = JavaProject.builder()
+      .gradlePlugin("org.graalvm.buildtools.gradle.NativeImagePlugin")
+      .build();
+    // When + Then
+    assertThat(hasNativeImagePackaging(javaProject)).isTrue();
+  }
 }

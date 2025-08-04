@@ -31,7 +31,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class ConfigsTest {
 
   public enum ConfigWithDefaults implements Configs.Config {
-    ONE, TWO;
+    ONE, TWO
   }
 
   @AllArgsConstructor
@@ -89,7 +89,7 @@ class ConfigsTest {
 
   @Test
   void getStringValueTest() {
-    String test = RandomStringUtils.randomAlphabetic(10);
+    String test = RandomStringUtils.secureStrong().nextAlphabetic(10);
     assertThat(Configs.asString(test)).isEqualTo(test);
   }
 
@@ -100,7 +100,7 @@ class ConfigsTest {
     // Given
     try {
       System.setProperty(systemKey, systemValue);
-      // TODO : Replace this when https://github.com/eclipse/jkube/issues/958 gets fixed
+      // TODO : Replace this when https://github.com/eclipse-jkube/jkube/issues/958 gets fixed
       final Properties fallback = new Properties();
       fallback.put(fallbackKey, fallbackValue);
       // When

@@ -13,14 +13,14 @@
  */
 package org.eclipse.jkube.wildfly.jar.enricher;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-
+import io.fabric8.kubernetes.api.builder.TypedVisitor;
+import io.fabric8.kubernetes.api.model.ContainerBuilder;
 import io.fabric8.kubernetes.api.model.ContainerFluent;
+import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.KubernetesListBuilder;
+import io.fabric8.kubernetes.api.model.Probe;
+import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.eclipse.jkube.kit.common.Dependency;
 import org.eclipse.jkube.kit.common.JavaProject;
 import org.eclipse.jkube.kit.common.Plugin;
@@ -29,20 +29,20 @@ import org.eclipse.jkube.kit.config.resource.PlatformMode;
 import org.eclipse.jkube.kit.config.resource.ProcessorConfig;
 import org.eclipse.jkube.kit.enricher.api.JKubeEnricherContext;
 import org.eclipse.jkube.kit.enricher.api.model.Configuration;
-
-import io.fabric8.kubernetes.api.builder.TypedVisitor;
-import io.fabric8.kubernetes.api.model.ContainerBuilder;
-import io.fabric8.kubernetes.api.model.KubernetesListBuilder;
-import io.fabric8.kubernetes.api.model.Probe;
-import io.fabric8.kubernetes.api.model.apps.DeploymentBuilder;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+
+
 class WildflyJARHealthCheckEnricherTest {
 
     protected JKubeEnricherContext context;
@@ -50,10 +50,11 @@ class WildflyJARHealthCheckEnricherTest {
     private JavaProject project;
 
     @BeforeEach
-    public void setUp() throws Exception {
-        context = mock(JKubeEnricherContext.class, RETURNS_DEEP_STUBS);
-        project = mock(JavaProject.class);
-        when(context.getProject()).thenReturn(project);
+    public void setUp() {
+       project = JavaProject.builder().build();
+       context = JKubeEnricherContext.builder()
+               .project(project)
+               .build();
     }
     private void setupExpectations(Map<String, Object> bootableJarConfig, Map<String, Map<String, Object>> jkubeConfig) {
       Plugin plugin = Plugin.builder().artifactId("wildfly-jar-maven-plugin").groupId("org.wildfly.plugins")
@@ -63,16 +64,20 @@ class WildflyJARHealthCheckEnricherTest {
         ProcessorConfig c = new ProcessorConfig(null, null, jkubeConfig);
         Configuration.ConfigurationBuilder configBuilder = Configuration.builder();
         configBuilder.processorConfig(c);
-        when(project.getPlugins()).thenReturn(lst);
-        when(context.getProject()).thenReturn(project);
-        when(context.getConfiguration()).thenReturn(configBuilder.build());
+        context = context.toBuilder()
+                .project(context.getProject().toBuilder()
+                .plugins(lst).build())
+                .processorConfig(c)
+                .build();
     }
 
     private void setupExpectations(Map<String, Map<String, Object>> jkubeConfig) {
         ProcessorConfig c = new ProcessorConfig(null, null, jkubeConfig);
         Configuration.ConfigurationBuilder configBuilder = Configuration.builder();
         configBuilder.processorConfig(c);
-        when(context.getConfiguration()).thenReturn(configBuilder.build());
+        context = context.toBuilder()
+                .processorConfig(c)
+                .build();
     }
 
     @Test
@@ -159,7 +164,7 @@ class WildflyJARHealthCheckEnricherTest {
     @Test
     @DisplayName("custom configuration with wildfly jar version after 25.0, should add startup probe")
     void withCustomConfigurationComingFromConf_withWildflyJarAfter25_0shouldAdd_startupProbe() {
-        wildFlyJarDependencyWithVersion( "26.1.1.Final");
+        wildFlyJarDependencyWithVersion("26.1.1.Final");
         Map<String, Object> jarConfig = new HashMap<>();
         jarConfig.put("cloud", null);
         Map<String, Map<String, Object>> config = createFakeConfig(
@@ -281,7 +286,7 @@ class WildflyJARHealthCheckEnricherTest {
         });
 
         assertThat(containerBuilders).singleElement()
-            .extracting(ContainerFluent::buildEnv).asList()
+            .extracting(ContainerFluent::buildEnv).asInstanceOf(InstanceOfAssertFactories.list(EnvVar.class))
             .singleElement()
             .hasFieldOrPropertyWithValue("name", "HOSTNAME")
             .extracting("valueFrom.fieldRef.fieldPath").isNotNull()
@@ -289,11 +294,17 @@ class WildflyJARHealthCheckEnricherTest {
     }
 
     private void wildFlyJarDependencyWithVersion(String wildflyJarVersion) {
-        when(project.getDependencies()).thenReturn(Collections.singletonList(Dependency.builder()
-                .groupId("org.wildfly.plugins")
-                .artifactId("wildfly-jar-maven-plugin")
-                .version(wildflyJarVersion)
-                .build()));
+        context = context.toBuilder()
+                .project(context.getProject().toBuilder()
+                        .dependency(Dependency.builder()
+                                .groupId("org.wildfly.plugins")
+                                .artifactId("wildfly-jar-maven-plugin")
+                                .version(wildflyJarVersion)
+                                .build())
+                        .build())
+                .build();
+
+
     }
 
     @SuppressWarnings("unchecked")

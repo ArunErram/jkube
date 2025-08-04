@@ -135,10 +135,10 @@ class JavaExecGeneratorMainClassDeterminationTest {
     void testMainClassDeterminationFromFatJar(@TempDir File baseDirectory) {
         try (MockedConstruction<FatJarDetector> fatJarDetector = mockConstruction(FatJarDetector.class,
                  (mock, ctx) -> {
-                     File fatJarArchive = new File("fat.jar");
+                     File fatJarArchive = new File(baseDirectory,"fat.jar");
                      when(fatJarDetectorResult.getArchiveFile()).thenReturn(fatJarArchive);
                      when(mock.scan()).thenReturn(fatJarDetectorResult);
-                 });
+                 })
         ) {
             processorConfig.getConfig().put("java-exec", Collections.singletonMap("name", "TheFatJarImageName"));
             project.setBaseDirectory(baseDirectory);

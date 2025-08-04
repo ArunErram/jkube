@@ -26,10 +26,10 @@ import java.util.function.Predicate;
 import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import io.fabric8.kubernetes.client.dsl.PodResource;
 import org.eclipse.jkube.kit.common.DebugConstants;
+import org.eclipse.jkube.kit.common.JKubeException;
 import org.eclipse.jkube.kit.common.KitLogger;
 import org.eclipse.jkube.kit.common.util.KubernetesHelper;
 import org.eclipse.jkube.kit.config.service.portforward.PortForwardPodWatcher;
-
 import io.fabric8.kubernetes.api.model.Container;
 import io.fabric8.kubernetes.api.model.ContainerPort;
 import io.fabric8.kubernetes.api.model.EnvVar;
@@ -71,16 +71,17 @@ public class DebugService {
         this.applyService = applyService;
     }
 
-    public void debug(
-        String namespace, String fileName, Collection<HasMetadata> entities, String localDebugPort, boolean debugSuspend, KitLogger podWaitLog
-    ) {
+    public void debug(DebugContext debugContext, Collection<HasMetadata> entities) {
         if (!isDebugApplicable(entities)) {
             log.error("Unable to proceed with Debug. No application resource found running in the cluster");
             return;
         }
+        if (debugContext.getJKubeBuildStrategy() != null && !debugContext.getJKubeBuildStrategy().isSupportsDebug()) {
+            throw new JKubeException("Debug is not supported in " + debugContext.getJKubeBuildStrategy().getLabel() + " build strategy");
+        }
         final NamespacedKubernetesClient nsClient;
-        if (namespace != null) {
-            nsClient = kubernetesClient.adapt(NamespacedKubernetesClient.class).inNamespace(namespace);
+        if (debugContext.getNamespace() != null) {
+            nsClient = kubernetesClient.adapt(NamespacedKubernetesClient.class).inNamespace(debugContext.getNamespace());
         } else {
             nsClient = kubernetesClient.adapt(NamespacedKubernetesClient.class);
         }
@@ -89,13 +90,13 @@ public class DebugService {
             if (firstSelector == null) {
                 firstSelector = extractPodLabelSelector(entity);
             }
-            enableDebugging(entity, fileName, debugSuspend);
+            enableDebugging(entity, debugContext.getFileName(), debugContext.isDebugSuspend());
         }
         if (firstSelector == null) {
             log.error("Debug is not applicable for the currently generated resources");
             return;
         }
-        startPortForward(nsClient, firstSelector, debugSuspend, localDebugPort, podWaitLog);
+        startPortForward(nsClient, firstSelector, debugContext.isDebugSuspend(), debugContext.getLocalDebugPort(), debugContext.getPodWaitLog());
     }
 
     /**

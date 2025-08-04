@@ -19,6 +19,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -206,19 +207,6 @@ class EnvUtilTest {
     }
 
     @Test
-    void testStringJoin(){
-        //Given
-        List<String> list = new ArrayList<>();
-        String separator = ",";
-        list.add("element1");
-        list.add("element2");
-        //When
-        String result = EnvUtil.stringJoin(list,separator);
-        //Then
-        assertThat(result).isEqualTo("element1,element2");
-    }
-
-    @Test
     void testExtractMavenPropertyName() {
         assertThat(EnvUtil.extractMavenPropertyName("${project.baseDir}")).isEqualTo("project.baseDir");
         assertThat(EnvUtil.extractMavenPropertyName("roject.notbaseDi")).isNull();
@@ -278,7 +266,7 @@ class EnvUtilTest {
     }
 
     @Test
-    void testLoadTimestampShouldLoadFromFile() throws Exception {
+    void testLoadTimestampShouldLoadFromFile() {
         // Given
         final File file = new File(EnvUtilTest.class.getResource("/util/loadTimestamp.timestamp").getFile());
         // When
@@ -293,7 +281,7 @@ class EnvUtilTest {
         try {
           //Given
           System.setProperty("os.name", "random");
-          // TODO : Replace this when https://github.com/eclipse/jkube/issues/958 gets fixed
+          // TODO : Replace this when https://github.com/eclipse-jkube/jkube/issues/958 gets fixed
           //When
           boolean result = EnvUtil.isWindows();
           //Then
@@ -309,7 +297,7 @@ class EnvUtilTest {
       try {
         //Given
         System.setProperty("os.name", "windows");
-        // TODO : Replace this when https://github.com/eclipse/jkube/issues/958 gets fixed
+        // TODO : Replace this when https://github.com/eclipse-jkube/jkube/issues/958 gets fixed
         //When
         boolean result = EnvUtil.isWindows();
         //Then
@@ -488,6 +476,42 @@ class EnvUtilTest {
             assertThat(EnvUtil.findBinaryFileInUserPath("foo")).isNull();
         } finally {
             EnvUtil.overrideEnvGetter(System::getenv);
+        }
+    }
+
+    @Test
+    @EnabledOnOs(OS.LINUX)
+    void javaBinary_whenLinuxBinaryPresent_shouldReturnPathToJavaBinary() {
+        try {
+            // Given
+            Map<String, String> properties = new HashMap<>();
+            properties.put("java.home", "/usr/java/jdk-foo");
+            properties.put("os.name", "Linux");
+            EnvUtil.overridePropertyGetter(properties::get);
+
+            // When + Then
+            assertThat(EnvUtil.javaBinary())
+              .isEqualTo("/usr/java/jdk-foo/bin/java");
+        } finally {
+            EnvUtil.overridePropertyGetter(System::getProperty);
+        }
+    }
+
+    @Test
+    @EnabledOnOs(OS.WINDOWS)
+    void javaBinary_whenWindowsBinaryPresent_shouldReturnPathToJavaBinary() {
+        try {
+            // Given
+            Map<String, String> properties = new HashMap<>();
+            properties.put("os.name", "Windows");
+            properties.put("java.home", "C:\\Program Files\\Java\\jdk-foo");
+            EnvUtil.overridePropertyGetter(properties::get);
+
+            // When + Then
+            assertThat(EnvUtil.javaBinary())
+              .isEqualTo("C:\\Program Files\\Java\\jdk-foo\\bin\\java.exe");
+        } finally {
+            EnvUtil.overridePropertyGetter(System::getProperty);
         }
     }
 }

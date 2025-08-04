@@ -13,14 +13,13 @@
  */
 package org.eclipse.jkube.gradle.plugin.task;
 
-import java.io.IOException;
-import java.net.URL;
 import java.util.Collections;
 
-import io.fabric8.openshift.client.OpenShiftClient;
+import io.fabric8.kubernetes.client.KubernetesClient;
+import io.fabric8.kubernetes.client.server.mock.EnableKubernetesMockClient;
 import org.eclipse.jkube.gradle.plugin.KubernetesExtension;
 import org.eclipse.jkube.gradle.plugin.TestKubernetesExtension;
-import org.eclipse.jkube.kit.config.access.ClusterAccess;
+import org.eclipse.jkube.kit.common.access.ClusterConfiguration;
 import org.eclipse.jkube.kit.config.service.ApplyService;
 
 import org.gradle.api.provider.Property;
@@ -35,32 +34,26 @@ import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+@EnableKubernetesMockClient(crud = true)
 class KubernetesApplyTaskTest {
 
   @RegisterExtension
   public final TaskEnvironmentExtension taskEnvironment = new TaskEnvironmentExtension();
 
-  private MockedConstruction<ClusterAccess> clusterAccessMockedConstruction;
   private MockedConstruction<ApplyService> applyServiceMockedConstruction;
   private TestKubernetesExtension extension;
+  private KubernetesClient kubernetesClient;
 
   @BeforeEach
-  void setUp() throws IOException {
-    clusterAccessMockedConstruction = mockConstruction(ClusterAccess.class, (mock, ctx) -> {
-      // OpenShiftClient instance needed due to OpenShift checks performed in KubernetesApply
-      final OpenShiftClient kubernetesClient = mock(OpenShiftClient.class);
-      when(kubernetesClient.getMasterUrl()).thenReturn(new URL("http://kubernetes-cluster"));
-      when(kubernetesClient.adapt(OpenShiftClient.class)).thenReturn(kubernetesClient);
-      when(mock.createDefaultClient()).thenReturn(kubernetesClient);
-    });
+  void setUp(){
     applyServiceMockedConstruction = mockConstruction(ApplyService.class);
     extension = new TestKubernetesExtension();
+    extension.access = ClusterConfiguration.from(kubernetesClient.getConfiguration()).build();
     when(taskEnvironment.project.getExtensions().getByType(KubernetesExtension.class)).thenReturn(extension);
     extension.isFailOnNoKubernetesJson = false;
   }
@@ -68,7 +61,6 @@ class KubernetesApplyTaskTest {
   @AfterEach
   void tearDown() {
     applyServiceMockedConstruction.close();
-    clusterAccessMockedConstruction.close();
   }
 
   @Test
@@ -116,7 +108,7 @@ class KubernetesApplyTaskTest {
     verify(as, times(1)).setRollingUpgradePreserveScale(false);
     verify(as, times(1)).setRecreateMode(false);
     verify(as, times(1)).setNamespace(null);
-    verify(as, times(1)).setFallbackNamespace(null);
+    verify(as, times(1)).setFallbackNamespace(kubernetesClient.getNamespace());
   }
 
   @Test

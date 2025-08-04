@@ -51,7 +51,7 @@ class PortForwardServiceTest {
     private KitLogger logger;
 
     @BeforeEach
-    public void setUp() throws Exception{
+    void setUp() {
         logger = new KitLogger.SilentLogger();
     }
 
@@ -96,7 +96,6 @@ class PortForwardServiceTest {
         PortForwardService service = new PortForwardService(logger);
 
         try (Closeable c = service.forwardPortAsync(client, new LabelSelectorBuilder().withMatchLabels(Collections.singletonMap("mykey", "myvalue")).build(), 8080, 9000)) {
-            Thread.sleep(3000);
         }
     }
 

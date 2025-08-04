@@ -14,6 +14,7 @@
 package org.eclipse.jkube.kit.config.service.openshift;
 
 import io.fabric8.kubernetes.api.model.EnvVar;
+import io.fabric8.kubernetes.api.model.EnvVarBuilder;
 import io.fabric8.kubernetes.api.model.LocalObjectReferenceBuilder;
 import io.fabric8.openshift.api.model.BuildConfig;
 import io.fabric8.openshift.api.model.BuildConfigSpec;
@@ -25,6 +26,7 @@ import io.fabric8.openshift.api.model.ImageStreamTag;
 import io.fabric8.openshift.api.model.ImageStreamTagBuilder;
 import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jkube.kit.build.api.assembly.ArchiverCustomizer;
+import org.eclipse.jkube.kit.common.KitLogger;
 import org.eclipse.jkube.kit.common.util.IoUtil;
 import org.eclipse.jkube.kit.common.util.KubernetesHelper;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
@@ -46,6 +48,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import static org.eclipse.jkube.kit.build.api.helper.BuildArgResolverUtil.mergeBuildArgsWithoutLocalDockerConfigProxySettings;
 import static org.eclipse.jkube.kit.build.api.helper.BuildUtil.extractBaseFromDockerfile;
 import static org.eclipse.jkube.kit.config.service.openshift.ImageStreamService.resolveImageStreamName;
 import static org.eclipse.jkube.kit.config.service.openshift.OpenshiftBuildService.DEFAULT_BUILD_OUTPUT_KIND;
@@ -72,10 +75,10 @@ public class OpenShiftBuildServiceUtils {
    * Returns the applicable name for the S2I Build resource considering the provided {@link ImageName} and
    * {@link BuildServiceConfig}.
    */
-  static String computeS2IBuildName(BuildServiceConfig config, ImageName imageName) {
+  static String computeS2IBuildName(ImageConfiguration imageConfiguration, BuildServiceConfig config, ImageName imageName) {
     final StringBuilder s2IBuildName = new StringBuilder(resolveImageStreamName(imageName));
-    if (!StringUtils.isEmpty(config.getS2iBuildNameSuffix())) {
-      s2IBuildName.append(config.getS2iBuildNameSuffix());
+    if (!StringUtils.isEmpty(imageConfiguration.getBuild().getOpenshiftS2iBuildNameSuffix())) {
+      s2IBuildName.append(imageConfiguration.getBuild().getOpenshiftS2iBuildNameSuffix());
     } else if (config.getJKubeBuildStrategy() == JKubeBuildStrategy.s2i) {
       s2IBuildName.append(DEFAULT_S2I_BUILD_SUFFIX);
     }
@@ -108,7 +111,7 @@ public class OpenShiftBuildServiceUtils {
   }
 
   protected static BuildStrategy createBuildStrategy(
-      JKubeServiceHub jKubeServiceHub, ImageConfiguration imageConfig, String openshiftPullSecret) {
+      JKubeServiceHub jKubeServiceHub, ImageConfiguration imageConfig, String openshiftPullSecret, KitLogger logger) {
     final BuildServiceConfig config = jKubeServiceHub.getBuildServiceConfig();
     final JKubeBuildStrategy osBuildStrategy = config.getJKubeBuildStrategy();
     final BuildConfiguration buildConfig = imageConfig.getBuildConfiguration();
@@ -132,6 +135,13 @@ public class OpenShiftBuildServiceUtils {
               .withNamespace(StringUtils.isEmpty(fromNamespace) ? null : fromNamespace)
             .endFrom()
             .withEnv(checkForEnv(imageConfig))
+            .withBuildArgs(mergeBuildArgsWithoutLocalDockerConfigProxySettings(imageConfig, jKubeServiceHub.getConfiguration(),logger)
+                .entrySet()
+                .stream()
+                .map(bcArg -> new EnvVarBuilder()
+                    .withName(bcArg.getKey())
+                    .withValue(bcArg.getValue()).build())
+                .collect(Collectors.toList()))
             .withNoCache(checkForNocache(imageConfig))
           .endDockerStrategy().build();
       if (openshiftPullSecret != null) {
@@ -149,7 +159,7 @@ public class OpenShiftBuildServiceUtils {
               .withName(fromName)
               .withNamespace(StringUtils.isEmpty(fromNamespace) ? null : fromNamespace)
             .endFrom()
-            .withForcePull(config.isForcePull())
+            .withForcePull(imageConfig.getBuild().isOpenshiftForcePull())
           .endSourceStrategy()
           .build();
       if (openshiftPullSecret != null) {
@@ -163,16 +173,16 @@ public class OpenShiftBuildServiceUtils {
     }
   }
 
-  protected static BuildOutput createBuildOutput(BuildServiceConfig config, ImageName imageName) {
-    final String buildOutputKind = Optional.ofNullable(config.getBuildOutputKind()).orElse(DEFAULT_BUILD_OUTPUT_KIND);
+  protected static BuildOutput createBuildOutput(ImageConfiguration imageConfiguration, ImageName imageName) {
+    final String buildOutputKind = Optional.ofNullable(imageConfiguration.getBuild().getOpenshiftBuildOutputKind()).orElse(DEFAULT_BUILD_OUTPUT_KIND);
     final String outputImageStreamTag = resolveImageStreamName(imageName) + ":" + (imageName.getTag() != null ? imageName.getTag() : "latest");
     final BuildOutputBuilder buildOutputBuilder = new BuildOutputBuilder();
     buildOutputBuilder.withNewTo().withKind(buildOutputKind).withName(outputImageStreamTag).endTo();
     if (DOCKER_IMAGE.equals(buildOutputKind)) {
       buildOutputBuilder.editTo().withName(imageName.getFullName()).endTo();
     }
-    if(StringUtils.isNotBlank(config.getOpenshiftPushSecret())) {
-      buildOutputBuilder.withNewPushSecret().withName(config.getOpenshiftPushSecret()).endPushSecret();
+    if(StringUtils.isNotBlank(imageConfiguration.getBuild().getOpenshiftPushSecret())) {
+      buildOutputBuilder.withNewPushSecret().withName(imageConfiguration.getBuild().getOpenshiftPushSecret()).endPushSecret();
     }
     return buildOutputBuilder.build();
   }
@@ -241,7 +251,7 @@ public class OpenShiftBuildServiceUtils {
   private static boolean checkForNocache(ImageConfiguration imageConfig) {
     String nocache = System.getProperty("docker.nocache");
     if (nocache != null) {
-      return nocache.length() == 0 || Boolean.parseBoolean(nocache);
+      return nocache.isEmpty() || Boolean.parseBoolean(nocache);
     } else {
       BuildConfiguration buildConfig = imageConfig.getBuildConfiguration();
       return buildConfig.nocache();

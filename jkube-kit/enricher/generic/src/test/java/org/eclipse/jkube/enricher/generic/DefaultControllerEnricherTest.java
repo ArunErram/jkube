@@ -48,7 +48,7 @@ class DefaultControllerEnricherTest {
     private Properties properties;
 
     @BeforeEach
-    void setUp() throws Exception {
+    void setUp() {
         config = new HashMap<>();
         properties = new Properties();
         context = JKubeEnricherContext.builder()
@@ -151,8 +151,8 @@ class DefaultControllerEnricherTest {
             .extracting(DeploymentSpec::getTemplate)
             .extracting(PodTemplateSpec::getSpec)
             .extracting(PodSpec::getContainers)
-            .asList()
-            .first(InstanceOfAssertFactories.type(Container.class))
+            .asInstanceOf(InstanceOfAssertFactories.list(Container.class))
+            .first()
             .hasFieldOrPropertyWithValue("imagePullPolicy", expectedImagePullPolicy);
     }
 

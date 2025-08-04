@@ -28,7 +28,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.openshift.api.model.ImageStreamTag;
 import org.eclipse.jkube.kit.build.api.auth.AuthConfig;
-import org.eclipse.jkube.kit.build.service.docker.auth.AuthConfigFactory;
+import org.eclipse.jkube.kit.build.service.docker.auth.DockerAuthConfigFactory;
 import org.eclipse.jkube.kit.common.KitLogger;
 import org.eclipse.jkube.kit.common.ResourceFileType;
 import org.eclipse.jkube.kit.common.util.KubernetesHelper;
@@ -130,7 +130,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
         initClient();
         String buildName = null;
         try {
-            final ImageConfiguration applicableImageConfig = getApplicableImageConfiguration(imageConfig, jKubeConfiguration.getRegistryConfig());
+            final ImageConfiguration applicableImageConfig = getApplicableImageConfiguration(imageConfig, jKubeConfiguration.getPullRegistryConfig());
             ImageName imageName = new ImageName(applicableImageConfig.getName());
 
             File dockerTar = createBuildArchive(jKubeServiceHub, applicableImageConfig);
@@ -138,7 +138,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
             KubernetesListBuilder builder = new KubernetesListBuilder();
 
             // Check for buildconfig / imagestream / pullSecret and create them if necessary
-            String openshiftPullSecret = buildServiceConfig.getOpenshiftPullSecret();
+            String openshiftPullSecret = imageConfig.getBuild().getOpenshiftPullSecret();
             final boolean usePullSecret = checkOrCreatePullSecret(client, builder, openshiftPullSecret, applicableImageConfig);
             if (usePullSecret) {
                 buildName = updateOrCreateBuildConfig(buildServiceConfig, client, builder, applicableImageConfig, openshiftPullSecret);
@@ -146,8 +146,8 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
                 buildName = updateOrCreateBuildConfig(buildServiceConfig, client, builder, applicableImageConfig, null);
             }
 
-            if (buildServiceConfig.getBuildOutputKind() == null || IMAGE_STREAM_TAG.equals(buildServiceConfig.getBuildOutputKind())) {
-                checkOrCreateImageStream(buildServiceConfig, client, builder, resolveImageStreamName(imageName));
+            if (imageConfig.getBuild().getOpenshiftBuildOutputKind() == null || IMAGE_STREAM_TAG.equals(imageConfig.getBuild().getOpenshiftBuildOutputKind())) {
+                checkOrCreateImageStream(applicableImageConfig, client, builder, resolveImageStreamName(imageName));
 
                 applyBuild(buildName, dockerTar, builder);
 
@@ -173,7 +173,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
     }
 
     @Override
-    protected void pushSingleImage(ImageConfiguration imageConfiguration, int retries, RegistryConfig registryConfig, boolean skipTag) {
+    protected void pushSingleImage(ImageConfiguration imageConfiguration, int retries, boolean skipTag) {
         // Do nothing. Image is pushed as part of build phase
         log.warn("Image is pushed to OpenShift's internal registry during oc:build goal. Skipping...");
     }
@@ -201,10 +201,10 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
 
     protected String updateOrCreateBuildConfig(BuildServiceConfig config, OpenShiftClient client, KubernetesListBuilder builder, ImageConfiguration imageConfig, String openshiftPullSecret) {
         ImageName imageName = new ImageName(imageConfig.getName());
-        String buildName = computeS2IBuildName(config, imageName);
+        String buildName = computeS2IBuildName(imageConfig, config, imageName);
 
-        BuildStrategy buildStrategyResource = createBuildStrategy(jKubeServiceHub, imageConfig, openshiftPullSecret);
-        BuildOutput buildOutput = createBuildOutput(config, imageName);
+        BuildStrategy buildStrategyResource = createBuildStrategy(jKubeServiceHub, imageConfig, openshiftPullSecret, this.log);
+        BuildOutput buildOutput = createBuildOutput(imageConfig, imageName);
 
         // Fetch existing build config
         BuildConfig buildConfig = client.buildConfigs().inNamespace(applicableOpenShiftNamespace).withName(buildName).get();
@@ -213,7 +213,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
             BuildConfigSpec spec = OpenShiftBuildServiceUtils.getBuildConfigSpec(buildConfig);
             validateSourceType(buildName, spec);
 
-            if (config.getBuildRecreateMode().isBuildConfig()) {
+            if (imageConfig.getBuild().getOpenshiftBuildRecreateMode().isBuildConfig()) {
                 // Delete and recreate afresh
                 client.buildConfigs().inNamespace(applicableOpenShiftNamespace).withName(buildName).delete();
                 return createBuildConfig(builder, buildName, buildStrategyResource, buildOutput);
@@ -235,7 +235,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
                     imageConfig.getBuildConfiguration().getAssembly().getFlattenedClone(jKubeServiceHub.getConfiguration()))
                 .build());
         }
-        if (buildServiceConfig.getBuildOutputKind() != null && buildServiceConfig.getBuildOutputKind().equals(DOCKER_IMAGE)) {
+        if (imageConfig.getBuild().getOpenshiftBuildOutputKind() != null && imageConfig.getBuild().getOpenshiftBuildOutputKind().equals(DOCKER_IMAGE)) {
             String applicableRegistry = getApplicablePushRegistryFrom(imageConfig, registryConfig);
             applicableImageConfigBuilder.name(new ImageName(imageConfig.getName()).getFullName(applicableRegistry));
         }
@@ -251,7 +251,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
         if (buildServiceConfig.getResourceConfig() != null && buildServiceConfig.getResourceConfig().getNamespace() != null) {
             applicableOpenShiftNamespace = buildServiceConfig.getResourceConfig().getNamespace();
         } else {
-            applicableOpenShiftNamespace = jKubeServiceHub.getClusterAccess().getNamespace();
+            applicableOpenShiftNamespace = jKubeServiceHub.getConfiguration().getClusterConfiguration().getNamespace();
         }
     }
 
@@ -342,11 +342,11 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
             fromImage = extractBaseFromConfiguration(buildConfig);
         }
 
-        String pullRegistry = getApplicablePullRegistryFrom(fromImage, jKubeConfiguration.getRegistryConfig());
+        String pullRegistry = getApplicablePullRegistryFrom(fromImage, jKubeConfiguration.getPullRegistryConfig());
 
         if (pullRegistry != null) {
-            RegistryConfig registryConfig = jKubeConfiguration.getRegistryConfig();
-            final AuthConfig authConfig = new AuthConfigFactory(log).createAuthConfig(false, registryConfig.isSkipExtendedAuth(), registryConfig.getAuthConfig(),
+            RegistryConfig registryConfig = jKubeConfiguration.getPullRegistryConfig();
+            final AuthConfig authConfig = new DockerAuthConfigFactory(log).createAuthConfig(false, registryConfig.isSkipExtendedAuth(), registryConfig.getAuthConfig(),
                     registryConfig.getSettings(), null, pullRegistry, registryConfig.getPasswordDecryptionMethod());
 
             final Secret secret = Optional.ofNullable(pullSecretName)
@@ -402,9 +402,9 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
         return true;
     }
 
-    private void checkOrCreateImageStream(BuildServiceConfig config, OpenShiftClient client, KubernetesListBuilder builder, String imageStreamName) {
+    private void checkOrCreateImageStream(ImageConfiguration applicableImageConfig, OpenShiftClient client, KubernetesListBuilder builder, String imageStreamName) {
         boolean hasImageStream = client.imageStreams().inNamespace(applicableOpenShiftNamespace).withName(imageStreamName).get() != null;
-        if (hasImageStream && config.getBuildRecreateMode().isImageStream()) {
+        if (hasImageStream && applicableImageConfig.getBuild().getOpenshiftBuildRecreateMode().isImageStream()) {
             client.imageStreams().inNamespace(applicableOpenShiftNamespace).withName(imageStreamName).delete();
             hasImageStream = false;
         }
@@ -416,7 +416,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
                 .endMetadata()
                 .withNewSpec()
                     .withNewLookupPolicy()
-                        .withLocal(config.isS2iImageStreamLookupPolicyLocal())
+                        .withLocal(applicableImageConfig.getBuild().isOpenshiftS2iImageStreamLookupPolicyLocal())
                     .endLookupPolicy()
                 .endSpec()
                 .build()
@@ -466,7 +466,7 @@ public class OpenshiftBuildService extends AbstractImageBuildService {
         // Don't query for logs directly, Watch over the build pod:
         waitUntilPodIsReady(buildName + "-build", 120, log);
         log.info("Waiting for build " + buildName + " to complete...");
-        try (LogWatch logWatch = client.pods().inNamespace(applicableOpenShiftNamespace).withName(buildName + "-build").watchLog()) {
+        try (LogWatch logWatch = client.builds().inNamespace(applicableOpenShiftNamespace).withName(buildName).watchLog()) {
             KubernetesHelper.printLogsAsync(logWatch, line -> log.info("[[s]]%s", line))
               .whenComplete((v, t) -> {
                   if (t != null) {

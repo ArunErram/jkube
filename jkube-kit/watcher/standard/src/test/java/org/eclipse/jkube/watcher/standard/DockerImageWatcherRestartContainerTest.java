@@ -29,8 +29,10 @@ import io.fabric8.kubernetes.api.model.apps.ReplicaSetList;
 import io.fabric8.kubernetes.client.KubernetesClient;
 import io.fabric8.kubernetes.client.dsl.AppsAPIGroupDSL;
 import io.fabric8.kubernetes.client.dsl.MixedOperation;
+import io.fabric8.kubernetes.client.dsl.NonDeletingOperation;
 import io.fabric8.kubernetes.client.dsl.NonNamespaceOperation;
 import io.fabric8.kubernetes.client.dsl.RollableScalableResource;
+import io.fabric8.kubernetes.client.dsl.ScalableResource;
 import io.fabric8.kubernetes.client.dsl.TimeoutImageEditReplacePatchable;
 import io.fabric8.openshift.api.model.DeploymentConfig;
 import io.fabric8.openshift.api.model.DeploymentConfigBuilder;
@@ -40,7 +42,6 @@ import io.fabric8.openshift.client.dsl.DeployableScalableResource;
 import org.assertj.core.api.InstanceOfAssertFactories;
 import org.eclipse.jkube.kit.build.service.docker.WatchService;
 import org.eclipse.jkube.kit.common.util.OpenshiftHelper;
-import org.eclipse.jkube.kit.config.access.ClusterAccess;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
 import org.eclipse.jkube.watcher.api.WatcherContext;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,9 +80,10 @@ class DockerImageWatcherRestartContainerTest {
     // Given
     Deployment deployment = createNewDeployment();
     RollableScalableResource<Deployment> rollableScalableResource = mockKubernetesClientAppsDeploymentCall();
+    NonDeletingOperation<Deployment> nonDeletingOperation = mockKubernetesClientAppsNonDeletingOperationCall(rollableScalableResource);
     TimeoutImageEditReplacePatchable<Deployment> timeoutImageEditReplacePatchable = mock(TimeoutImageEditReplacePatchable.class);
     when(mockedImageWatcher.getImageConfiguration()).thenReturn(createNewImageConfiguration("foo/example-deployment:snapshot-1234"));
-    when(rollableScalableResource.replace()).thenReturn(deployment);
+    when(nonDeletingOperation.update()).thenReturn(deployment);
     when(rollableScalableResource.rolling()).thenReturn(timeoutImageEditReplacePatchable);
     when(timeoutImageEditReplacePatchable.restart()).thenReturn(deployment);
 
@@ -89,7 +91,8 @@ class DockerImageWatcherRestartContainerTest {
     dockerImageWatcher.restartContainer(mockedImageWatcher, Collections.singletonList(deployment));
 
     // Then
-    verify(rollableScalableResource).replace();
+    verify(rollableScalableResource).unlock();
+    verify(nonDeletingOperation).update();
     verify(rollableScalableResource).rolling();
     verify(timeoutImageEditReplacePatchable).restart();
     assertPodTemplateSpecContainsImage(deployment.getSpec().getTemplate(), "foo/example-deployment:snapshot-1234");
@@ -100,9 +103,10 @@ class DockerImageWatcherRestartContainerTest {
     // Given
     ReplicaSet replicaSet = createNewReplicaSet();
     RollableScalableResource<ReplicaSet> rollableScalableResource = mockKubernetesClientAppsReplicaSetCall();
+    NonDeletingOperation<ReplicaSet> nonDeletingOperation = mockKubernetesClientAppsNonDeletingOperationCall(rollableScalableResource);
     TimeoutImageEditReplacePatchable<ReplicaSet> timeoutImageEditReplacePatchable = mock(TimeoutImageEditReplacePatchable.class);
     when(mockedImageWatcher.getImageConfiguration()).thenReturn(createNewImageConfiguration("foo/example-replicaset:snapshot-1234"));
-    when(rollableScalableResource.replace()).thenReturn(replicaSet);
+    when(nonDeletingOperation.update()).thenReturn(replicaSet);
     when(rollableScalableResource.rolling()).thenReturn(timeoutImageEditReplacePatchable);
     when(timeoutImageEditReplacePatchable.restart()).thenReturn(replicaSet);
 
@@ -110,7 +114,8 @@ class DockerImageWatcherRestartContainerTest {
     dockerImageWatcher.restartContainer(mockedImageWatcher, Collections.singletonList(replicaSet));
 
     // Then
-    verify(rollableScalableResource).replace();
+    verify(rollableScalableResource).unlock();
+    verify(nonDeletingOperation).update();
     verify(rollableScalableResource).rolling();
     verify(timeoutImageEditReplacePatchable).restart();
     assertPodTemplateSpecContainsImage(replicaSet.getSpec().getTemplate(), "foo/example-replicaset:snapshot-1234");
@@ -121,9 +126,10 @@ class DockerImageWatcherRestartContainerTest {
     // Given
     ReplicationController replicationController = createNewReplicationController();
     RollableScalableResource<ReplicationController> rollableScalableResource = mockKubernetesClientAppsReplicationControllerCall();
+    NonDeletingOperation<ReplicationController> nonDeletingOperation = mockKubernetesClientAppsNonDeletingOperationCall(rollableScalableResource);
     TimeoutImageEditReplacePatchable<ReplicationController> timeoutImageEditReplacePatchable = mock(TimeoutImageEditReplacePatchable.class);
     when(mockedImageWatcher.getImageConfiguration()).thenReturn(createNewImageConfiguration("foo/example-replicationcontroller:snapshot-1234"));
-    when(rollableScalableResource.replace()).thenReturn(replicationController);
+    when(nonDeletingOperation.update()).thenReturn(replicationController);
     when(rollableScalableResource.rolling()).thenReturn(timeoutImageEditReplacePatchable);
     when(timeoutImageEditReplacePatchable.restart()).thenReturn(replicationController);
 
@@ -131,7 +137,8 @@ class DockerImageWatcherRestartContainerTest {
     dockerImageWatcher.restartContainer(mockedImageWatcher, Collections.singletonList(replicationController));
 
     // Then
-    verify(rollableScalableResource).replace();
+    verify(rollableScalableResource).unlock();
+    verify(nonDeletingOperation).update();
     verify(rollableScalableResource).rolling();
     verify(timeoutImageEditReplacePatchable).restart();
     assertPodTemplateSpecContainsImage(replicationController.getSpec().getTemplate(), "foo/example-replicationcontroller:snapshot-1234");
@@ -146,14 +153,16 @@ class DockerImageWatcherRestartContainerTest {
           .thenReturn(mockedOpenShiftClient);
       DeploymentConfig deploymentConfig = createNewDeploymentConfig();
       DeployableScalableResource<DeploymentConfig> rollableScalableResource = mockOpenShiftClientDeploymentConfigCall(mockedOpenShiftClient);
+      NonDeletingOperation<DeploymentConfig> nonDeletingOperation = mockKubernetesClientAppsNonDeletingOperationCall(rollableScalableResource);
       when(mockedImageWatcher.getImageConfiguration()).thenReturn(createNewImageConfiguration("foo/example-deploymentconfig:snapshot-1234"));
-      when(rollableScalableResource.replace()).thenReturn(deploymentConfig);
+      when(nonDeletingOperation.update()).thenReturn(deploymentConfig);
 
       // When
       dockerImageWatcher.restartContainer(mockedImageWatcher, Collections.singletonList(deploymentConfig));
 
       // Then
-      verify(rollableScalableResource).replace();
+      verify(rollableScalableResource).unlock();
+      verify(nonDeletingOperation).update();
       assertPodTemplateSpecContainsImage(deploymentConfig.getSpec().getTemplate(), "foo/example-deploymentconfig:snapshot-1234");
     }
   }
@@ -162,8 +171,8 @@ class DockerImageWatcherRestartContainerTest {
     assertThat(podTemplateSpec)
         .extracting(PodTemplateSpec::getSpec)
         .extracting(PodSpec::getContainers)
-        .asList()
-        .first(InstanceOfAssertFactories.type(Container.class))
+        .asInstanceOf(InstanceOfAssertFactories.list(Container.class))
+        .first()
         .extracting(Container::getImage)
         .isEqualTo(expectedImage);
   }
@@ -219,6 +228,12 @@ class DockerImageWatcherRestartContainerTest {
     when(mixedOp.inNamespace(anyString())).thenReturn(deploymentConfigNonNsOp);
     when(deploymentConfigNonNsOp.resource(any())).thenReturn(deployableScalableResource);
     return deployableScalableResource;
+  }
+
+  private <T> NonDeletingOperation<T>  mockKubernetesClientAppsNonDeletingOperationCall(ScalableResource<T> scalableResource) {
+    NonDeletingOperation<T> nonDeletingOperation = mock(NonDeletingOperation.class);
+    when(scalableResource.unlock()).thenReturn(nonDeletingOperation);
+    return nonDeletingOperation;
   }
 
   private Deployment createNewDeployment() {

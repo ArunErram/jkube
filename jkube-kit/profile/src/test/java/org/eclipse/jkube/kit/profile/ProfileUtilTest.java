@@ -18,7 +18,6 @@ import org.junit.jupiter.api.Test;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URISyntaxException;
 import java.util.Arrays;
 import java.util.Collections;
@@ -57,7 +56,7 @@ class ProfileUtilTest {
     }
 
     @Test
-    void findProfile_whenValidProfileArg_returnsValidProfile() throws URISyntaxException, IOException {
+    void findProfile_whenValidProfileArg_returnsValidProfile() throws URISyntaxException {
         assertThat(ProfileUtil.findProfile("simple", getProfileDir()))
           .isNotNull()
           .hasFieldOrPropertyWithValue("name", "simple")

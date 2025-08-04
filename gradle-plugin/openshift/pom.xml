@@ -21,7 +21,7 @@
     <parent>
       <groupId>org.eclipse.jkube</groupId>
       <artifactId>gradle-plugin</artifactId>
-        <version>1.16-SNAPSHOT</version>
+        <version>1.19-SNAPSHOT</version>
       <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -50,7 +50,9 @@
         <dependency>
             <groupId>org.codehaus.groovy</groupId>
             <artifactId>groovy-all</artifactId>
+            <version>${version.groovy}</version>
             <type>pom</type>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.gradle</groupId>
@@ -64,6 +66,25 @@
         </dependency>
 
         <!-- test -->
+        <dependency>
+            <groupId>org.eclipse.jkube</groupId>
+            <artifactId>jkube-kit-common</artifactId>
+            <scope>test</scope>
+            <type>test-jar</type>
+        </dependency>
+
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>mockwebserver</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>openshift-server-mock</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.fabric8</groupId>
+            <artifactId>kube-api-test</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter-engine</artifactId>
@@ -89,55 +110,26 @@
          -->
     </dependencies>
 
-    <!-- TODO: Remove once JMockit is no longer in the project -->
     <profiles>
         <profile>
-            <id>jacoco</id>
+            <id>java-8</id>
+            <activation>
+                <jdk>1.8</jdk>
+            </activation>
             <build>
                 <plugins>
                     <plugin>
-                        <groupId>org.jacoco</groupId>
-                        <artifactId>jacoco-maven-plugin</artifactId>
-                        <version>${version.jacoco}</version>
-                        <executions>
-                            <execution>
-                                <id>default-prepare-agent</id>
-                                <goals>
-                                    <goal>prepare-agent</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>default-report</id>
-                                <goals>
-                                    <goal>report</goal>
-                                </goals>
-                            </execution>
-                            <execution>
-                                <id>instrument</id>
-                                <phase>none</phase>
-                            </execution>
-                            <execution>
-                                <id>restore</id>
-                                <phase>none</phase>
-                            </execution>
-                        </executions>
-                    </plugin>
-                    <plugin>
-                        <groupId>org.apache.maven.plugins</groupId>
-                        <artifactId>maven-surefire-plugin</artifactId>
-                        <configuration>
-                            <systemPropertyVariables>
-                                <!-- JaCoCo runtime must know where to dump coverage: -->
-                                <jacoco-agent.destfile>target/jacoco.exec</jacoco-agent.destfile>
-                            </systemPropertyVariables>
-                            <environmentVariables>
-                                <LC_ALL>en_EN.UTF-8</LC_ALL>
-                            </environmentVariables>
+                        <artifactId>maven-compiler-plugin</artifactId>
+                        <configuration combine.self="override">
+                            <testExcludes>
+                                <testExclude>**/OpenShiftHelmInstallTaskTest.java</testExclude>
+                                <testExclude>**/OpenShiftHelmTestTaskTest.java</testExclude>
+                                <testExclude>**/OpenShiftHelmUninstallTaskTest.java</testExclude>
+                            </testExcludes>
                         </configuration>
                     </plugin>
                 </plugins>
             </build>
         </profile>
     </profiles>
-    <!-- ///////////////////////////////////////////////////// -->
 </project>

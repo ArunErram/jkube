@@ -14,17 +14,26 @@
 package org.eclipse.jkube.kit.common.util;
 
 import io.fabric8.kubernetes.client.utils.Utils;
+import org.eclipse.jkube.kit.common.JavaProject;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
+import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 
+import static org.eclipse.jkube.kit.common.util.JKubeProjectUtil.getClassLoader;
+import static org.eclipse.jkube.kit.common.util.YamlUtil.getPropertiesFromYamlResource;
+
 public class PropertiesUtil {
+
+  public static final String JKUBE_INTERNAL_APP_CONFIG_FILE_LOCATION = "jkube.internal.application-config-file.path";
 
   private PropertiesUtil() {}
 
@@ -41,6 +50,18 @@ public class PropertiesUtil {
         ret.load(stream);
       } catch (IOException e) {
         throw new IllegalStateException("Error while reading resource from URL " + resource, e);
+      }
+    }
+    return ret;
+  }
+
+  public static Properties readProperties(Path properties) {
+    final Properties ret = new Properties();
+    if (properties != null && properties.toFile().exists() && properties.toFile().isFile()) {
+      try (InputStream stream = Files.newInputStream(properties)) {
+        ret.load(stream);
+      } catch (IOException e) {
+        throw new IllegalStateException("Error while reading properties from file " + properties, e);
       }
     }
     return ret;
@@ -77,5 +98,25 @@ public class PropertiesUtil {
       map.put(String.valueOf(entry.getKey()), String.valueOf(entry.getValue()));
     }
     return map;
+  }
+
+  public static Properties fromApplicationConfig(JavaProject javaProject, String[] appConfigSources) {
+    final URLClassLoader urlClassLoader = getClassLoader(javaProject);
+    for (String source : appConfigSources) {
+      final Properties properties;
+      URL applicationConfigSource = urlClassLoader.findResource(source);
+      if (source.endsWith(".properties")) {
+        properties = getPropertiesFromResource(applicationConfigSource);
+      } else {
+        properties = getPropertiesFromYamlResource(applicationConfigSource);
+      }
+      // Consider only the first non-empty application config source
+      if (!properties.isEmpty()) {
+        properties.putAll(toMap(javaProject.getProperties()));
+        properties.put(JKUBE_INTERNAL_APP_CONFIG_FILE_LOCATION, applicationConfigSource);
+        return properties;
+      }
+    }
+    return javaProject.getProperties();
   }
 }

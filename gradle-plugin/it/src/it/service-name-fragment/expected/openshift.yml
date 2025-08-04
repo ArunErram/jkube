@@ -106,7 +106,7 @@ items:
     name: customized-name
   spec:
     port:
-      targetPort: 9090
+      targetPort: http
     to:
       kind: Service
       name: customized-name

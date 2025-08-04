@@ -22,8 +22,10 @@ import org.eclipse.jkube.kit.common.JavaProject;
 import org.eclipse.jkube.kit.common.KitLogger;
 import org.eclipse.jkube.kit.common.Maintainer;
 import org.eclipse.jkube.kit.common.RegistryServerConfiguration;
+import org.eclipse.jkube.kit.common.util.JKubeProjectUtil;
 import org.eclipse.jkube.kit.common.util.KubernetesHelper;
 import org.eclipse.jkube.kit.common.util.Serialization;
+import org.eclipse.jkube.kit.config.resource.GroupArtifactVersion;
 import org.eclipse.jkube.kit.config.resource.JKubeAnnotations;
 
 import java.io.File;
@@ -37,11 +39,13 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.commons.io.FilenameUtils.separatorsToSystem;
 import static org.apache.commons.lang3.StringUtils.EMPTY;
 import static org.eclipse.jkube.kit.common.util.JKubeProjectUtil.getProperty;
 import static org.eclipse.jkube.kit.common.util.YamlUtil.listYamls;
@@ -73,6 +77,18 @@ public class HelmServiceUtil {
   protected static final String PROPERTY_SECURITY =  "jkube.helm.security";
   protected static final String DEFAULT_SECURITY = "~/.m2/settings-security.xml";
 
+  protected static final String PROPERTY_HELM_LINT_STRICT = "jkube.helm.lint.strict";
+  protected static final String PROPERTY_HELM_LINT_QUIET = "jkube.helm.lint.quiet";
+  protected static final String PROPERTY_HELM_DEBUG = "jkube.helm.debug";
+  protected static final String PROPERTY_HELM_DEPENDENCY_VERIFY = "jkube.helm.dependencyVerify";
+  protected static final String PROPERTY_HELM_DEPENDENCY_SKIP_REFRESH = "jkube.helm.dependencySkipRefresh";
+  protected static final String PROPERTY_HELM_RELEASE_NAME = "jkube.helm.release.name";
+  protected static final String PROPERTY_HELM_INSTALL_DEPENDENCY_UPDATE = "jkube.helm.install.dependencyUpdate";
+  protected static final String PROPERTY_HELM_INSTALL_WAIT_READY = "jkube.helm.install.waitReady";
+  protected static final String PROPERTY_HELM_DISABLE_OPENAPI_VALIDATION = "jkube.helm.disableOpenAPIValidation";
+  protected static final String PROPERTY_HELM_TEST_TIMEOUT = "jkube.helm.test.timeout";
+  protected static final String HELM_DEFAULT_TIMEOUT = "300";
+
   private HelmServiceUtil() { }
 
   public static HelmConfig.HelmConfigBuilder initHelmConfig(
@@ -101,28 +117,34 @@ public class HelmServiceUtil {
     helmConfig.setTypes(resolveHelmTypes(defaultHelmType, project));
 
     helmConfig.setSourceDir(resolveFromPropertyOrDefault(PROPERTY_SOURCE_DIR, project, helmConfig::getSourceDir,
-        () -> String.format("%s/META-INF/jkube/", project.getOutputDirectory())));
+        () -> separatorsToSystem(String.format("%s/META-INF/jkube/", project.getOutputDirectory()))));
     helmConfig.setOutputDir(resolveFromPropertyOrDefault(PROPERTY_OUTPUT_DIR, project, helmConfig::getOutputDir,
-      () -> String.format("%s/jkube/helm/%s", project.getBuildDirectory(), helmConfig.getChart())));
+      () -> separatorsToSystem(String.format("%s/jkube/helm/%s", project.getBuildDirectory(), helmConfig.getChart()))));
     helmConfig.setIcon(resolveFromPropertyOrDefault(PROPERTY_ICON, project, helmConfig::getIcon,
         () -> findIconURL(new File(helmConfig.getSourceDir()), helmConfig.getTypes())));
     helmConfig.setAppVersion(resolveFromPropertyOrDefault(PROPERTY_APP_VERSION, project, helmConfig::getAppVersion, project::getVersion));
     helmConfig.setTarFileClassifier(resolveFromPropertyOrDefault(PROPERTY_TARBALL_CLASSIFIER, project, helmConfig::getTarFileClassifier, () -> EMPTY));
     helmConfig.setTarballOutputDir(resolveFromPropertyOrDefault(PROPERTY_TARBALL_OUTPUT_DIR, project, helmConfig::getTarballOutputDir,
         helmConfig::getOutputDir));
+    helmConfig.setLintStrict(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_LINT_STRICT, project, helmConfig::isLintStrict));
+    helmConfig.setLintQuiet(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_LINT_QUIET, project, helmConfig::isLintQuiet));
+    helmConfig.setDebug(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_DEBUG, project, helmConfig::isDebug));
+    helmConfig.setDependencyVerify(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_DEPENDENCY_VERIFY, project, helmConfig::isDependencyVerify));
+    helmConfig.setDependencySkipRefresh(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_DEPENDENCY_SKIP_REFRESH, project, helmConfig::isDependencySkipRefresh));
+    helmConfig.setReleaseName(resolveFromPropertyOrDefault(PROPERTY_HELM_RELEASE_NAME, project, helmConfig::getReleaseName, () -> JKubeProjectUtil.createDefaultResourceName(new GroupArtifactVersion(project.getGroupId(), project.getArtifactId(), project.getVersion()).getSanitizedArtifactId())));
+    helmConfig.setInstallDependencyUpdate(original == null || original.isInstallDependencyUpdate());
+    helmConfig.setInstallDependencyUpdate(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_INSTALL_DEPENDENCY_UPDATE, project, helmConfig::isInstallDependencyUpdate));
+    helmConfig.setInstallWaitReady(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_INSTALL_WAIT_READY, project, helmConfig::isInstallWaitReady));
+    helmConfig.setDisableOpenAPIValidation(resolveBooleanFromPropertyOrDefault(PROPERTY_HELM_DISABLE_OPENAPI_VALIDATION, project, helmConfig::isDisableOpenAPIValidation));
+    helmConfig.setTestTimeout(Integer.parseInt(resolveFromPropertyOrDefault(PROPERTY_HELM_TEST_TIMEOUT, project, () -> helmConfig.getTestTimeout() > 0 ? Integer.toString(helmConfig.getTestTimeout()) : null, () -> HELM_DEFAULT_TIMEOUT)));
     return helmConfig.toBuilder();
   }
 
-  public static HelmConfig initHelmPushConfig(HelmConfig helmConfig, JavaProject project) {
-    if (helmConfig == null) {
-      helmConfig = new HelmConfig();
-    }
-
+  public static void initHelmPushConfig(HelmConfig helmConfig, JavaProject project) {
     helmConfig.setStableRepository(initHelmRepository(helmConfig.getStableRepository(), project, STABLE_REPOSITORY));
     helmConfig.setSnapshotRepository(initHelmRepository(helmConfig.getSnapshotRepository(), project, SNAPSHOT_REPOSITORY));
 
     helmConfig.setSecurity(resolveFromPropertyOrDefault(PROPERTY_SECURITY, project, helmConfig::getSecurity, () -> DEFAULT_SECURITY));
-    return helmConfig;
   }
 
   static HelmRepository initHelmRepository(HelmRepository helmRepository, JavaProject project, String repositoryType) {
@@ -163,6 +185,13 @@ public class HelmServiceUtil {
       .orElse(Optional.ofNullable(getter.get())
         .filter(StringUtils::isNotBlank)
         .orElseGet(defaultValue == null ? () -> null : defaultValue));
+  }
+
+  static boolean resolveBooleanFromPropertyOrDefault(String property, JavaProject project, BooleanSupplier getter) {
+    return Optional.ofNullable(getProperty(property, project))
+      .filter(StringUtils::isNotBlank)
+      .map(Boolean::parseBoolean)
+      .orElse(getter.getAsBoolean());
   }
 
   static List<File> getAdditionalFiles(HelmConfig helm, JavaProject project) {

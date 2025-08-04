@@ -21,9 +21,8 @@ import org.apache.maven.plugin.descriptor.PluginDescriptor;
 import org.apache.maven.project.MavenProject;
 import org.apache.maven.project.MavenProjectHelper;
 import org.apache.maven.settings.Settings;
-import org.eclipse.jkube.kit.build.service.docker.config.handler.ImageConfigResolver;
 import org.eclipse.jkube.kit.common.KitLogger;
-import org.eclipse.jkube.kit.config.access.ClusterConfiguration;
+import org.eclipse.jkube.kit.common.access.ClusterConfiguration;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
 import org.eclipse.jkube.kit.config.image.build.BuildConfiguration;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,13 +34,10 @@ import java.nio.file.Path;
 import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 class OpenShiftResourceMojoTest {
 
@@ -89,13 +85,13 @@ class OpenShiftResourceMojoTest {
     final File generatedArtifact = new File(resourceMojo.targetDir, "openshift.yml");
     assertThat(generatedArtifact)
       .exists()
-      .content().isEqualTo("---\napiVersion: v1\nkind: List\n");
+      .content().isEqualTo(String.format("---%napiVersion: v1%nkind: List%n"));
     verify(resourceMojo.projectHelper, times(1))
       .attachArtifact(resourceMojo.project, "yml", "openshift", generatedArtifact);
   }
 
   @Test
-  void executeInternal_resolvesGroupInImageNameToClusterAccessNamespace_whenNamespaceDetected() throws MojoExecutionException, MojoFailureException {
+  void executeInternal_resolvesGroupInImageNameToClusterConfigurationNamespace_whenNamespaceDetected() throws MojoExecutionException, MojoFailureException {
     // Given
     resourceMojo.project.setArtifactId("test-project");
     ImageConfiguration imageConfiguration = ImageConfiguration.builder()
@@ -105,8 +101,6 @@ class OpenShiftResourceMojoTest {
         .build())
       .build();
     resourceMojo.images = Collections.singletonList(imageConfiguration);
-    resourceMojo.imageConfigResolver = mock(ImageConfigResolver.class);
-    when(resourceMojo.imageConfigResolver.resolve(eq(imageConfiguration), any())).thenReturn(Collections.singletonList(imageConfiguration));
     resourceMojo.access = ClusterConfiguration.builder().namespace("namespace-from-cluster-access").build();
     // When
     resourceMojo.execute();
@@ -126,8 +120,6 @@ class OpenShiftResourceMojoTest {
         .build())
       .build();
     resourceMojo.images = Collections.singletonList(imageConfiguration);
-    resourceMojo.imageConfigResolver = mock(ImageConfigResolver.class);
-    when(resourceMojo.imageConfigResolver.resolve(eq(imageConfiguration), any())).thenReturn(Collections.singletonList(imageConfiguration));
     resourceMojo.namespace = "namespace-configured-via-plugin";
     // When
     resourceMojo.execute();

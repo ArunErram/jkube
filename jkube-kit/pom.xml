@@ -18,13 +18,13 @@
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>jkube-kit-build</artifactId>
-  <version>1.16-SNAPSHOT</version>
+  <version>1.19-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <parent>
     <groupId>org.eclipse.jkube</groupId>
     <artifactId>jkube-kit-parent</artifactId>
-    <version>1.16-SNAPSHOT</version>
+    <version>1.19-SNAPSHOT</version>
     <relativePath>parent/pom.xml</relativePath>
   </parent>
 
@@ -47,6 +47,7 @@
       <module>generator/java-exec</module>
       <module>generator/karaf</module>
       <module>generator/webapp</module>
+      <module>generator/dockerfile-simple</module>
       <module>enricher/api</module>
       <module>enricher/generic</module>
       <module>enricher/specific</module>

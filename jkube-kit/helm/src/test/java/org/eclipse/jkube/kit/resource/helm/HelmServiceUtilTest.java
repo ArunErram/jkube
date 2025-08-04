@@ -36,6 +36,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
+import static org.apache.commons.io.FilenameUtils.separatorsToSystem;
 import static org.assertj.core.api.Assertions.assertThat;
 
 class HelmServiceUtilTest {
@@ -86,10 +87,17 @@ class HelmServiceUtilTest {
       .hasFieldOrPropertyWithValue("types", Collections.singletonList(HelmConfig.HelmType.KUBERNETES))
       .hasFieldOrPropertyWithValue("additionalFiles", Collections.emptyList())
       .hasFieldOrPropertyWithValue("parameterTemplates", Collections.emptyList())
-      .hasFieldOrProperty("icon");
-    assertThat(result.getSourceDir()).endsWith("target/classes/META-INF/jkube/");
-    assertThat(result.getOutputDir()).endsWith("target/jkube/helm/artifact-id");
-    assertThat(result.getTarballOutputDir()).endsWith("target/jkube/helm/artifact-id");
+      .hasFieldOrProperty("icon")
+      .hasFieldOrPropertyWithValue("lintStrict", false)
+      .hasFieldOrPropertyWithValue("lintQuiet", false)
+      .hasFieldOrPropertyWithValue("releaseName", "artifact-id")
+      .hasFieldOrPropertyWithValue("installDependencyUpdate", true)
+      .hasFieldOrPropertyWithValue("installWaitReady", false)
+      .hasFieldOrPropertyWithValue("disableOpenAPIValidation", false)
+      .hasFieldOrPropertyWithValue("testTimeout", 300);
+    assertThat(result.getSourceDir()).endsWith(separatorsToSystem("target/classes/META-INF/jkube/"));
+    assertThat(result.getOutputDir()).endsWith(separatorsToSystem("target/jkube/helm/artifact-id"));
+    assertThat(result.getTarballOutputDir()).endsWith(separatorsToSystem("target/jkube/helm/artifact-id"));
   }
 
   @Test
@@ -103,6 +111,16 @@ class HelmServiceUtilTest {
         .maintainers(Collections.emptyList())
         .sourceDir("sources")
         .outputDir("output")
+        .lintStrict(true)
+        .lintQuiet(true)
+        .debug(true)
+        .dependencySkipRefresh(true)
+        .dependencyVerify(true)
+        .releaseName("new-release-name")
+        .installDependencyUpdate(false)
+        .installWaitReady(true)
+        .disableOpenAPIValidation(true)
+        .testTimeout(10)
         .build();
     // When
     final HelmConfig result = HelmServiceUtil
@@ -120,7 +138,17 @@ class HelmServiceUtilTest {
       .hasFieldOrPropertyWithValue("sources", Collections.emptyList())
       .hasFieldOrPropertyWithValue("maintainers", Collections.emptyList())
       .hasFieldOrPropertyWithValue("sourceDir", "sources")
-      .hasFieldOrPropertyWithValue("outputDir", "output");
+      .hasFieldOrPropertyWithValue("outputDir", "output")
+      .hasFieldOrPropertyWithValue("lintStrict", true)
+      .hasFieldOrPropertyWithValue("lintQuiet", true)
+      .hasFieldOrPropertyWithValue("debug", true)
+      .hasFieldOrPropertyWithValue("dependencySkipRefresh", true)
+      .hasFieldOrPropertyWithValue("dependencyVerify", true)
+      .hasFieldOrPropertyWithValue("releaseName", "new-release-name")
+      .hasFieldOrPropertyWithValue("installDependencyUpdate", false)
+      .hasFieldOrPropertyWithValue("installWaitReady", true)
+      .hasFieldOrPropertyWithValue("disableOpenAPIValidation", true)
+      .hasFieldOrPropertyWithValue("testTimeout", 10);
   }
 
   @Test
@@ -140,6 +168,53 @@ class HelmServiceUtilTest {
           HelmConfig.HelmType.KUBERNETES,
           HelmConfig.HelmType.OPENSHIFT
       );
+  }
+
+  @Test
+  void initHelmConfig_withLintProperties_shouldInitConfigWithLintSettings() throws IOException {
+    // Given
+    javaProject.getProperties().put("jkube.helm.lint.strict", "True");
+    javaProject.getProperties().put("jkube.helm.lint.quiet", "trUe");
+    // When
+    final HelmConfig result = HelmServiceUtil
+        .initHelmConfig(HelmConfig.HelmType.KUBERNETES, javaProject, templateDir, null)
+        .build();
+    // Then
+    assertThat(result)
+      .hasFieldOrPropertyWithValue("lintStrict", true)
+      .hasFieldOrPropertyWithValue("lintQuiet", true);
+  }
+
+  @Test
+  void initHelmConfig_withHelmDependencyProperties_shouldInitConfigWithHelmDependencySettings() throws IOException {
+    // Given
+    javaProject.getProperties().put("jkube.helm.dependencyVerify", "True");
+    javaProject.getProperties().put("jkube.helm.dependencySkipRefresh", "trUe");
+    // When
+    final HelmConfig result = HelmServiceUtil
+      .initHelmConfig(HelmConfig.HelmType.KUBERNETES, javaProject, templateDir, null)
+      .build();
+    // Then
+    assertThat(result)
+      .hasFieldOrPropertyWithValue("dependencyVerify", true)
+      .hasFieldOrPropertyWithValue("dependencySkipRefresh", true);
+  }
+
+  @Test
+  void initHelmConfig_withHelmInstallProperties_shouldInitConfigWithHelmInstallSettings() throws IOException {
+    // Given
+    javaProject.getProperties().put("jkube.helm.release.name", "test-release-name");
+    javaProject.getProperties().put("jkube.helm.install.dependencyUpdate", "False");
+    javaProject.getProperties().put("jkube.helm.install.waitReady", "true");
+    // When
+    final HelmConfig result = HelmServiceUtil
+      .initHelmConfig(HelmConfig.HelmType.KUBERNETES, javaProject, templateDir, null)
+      .build();
+    // Then
+    assertThat(result)
+      .hasFieldOrPropertyWithValue("releaseName", "test-release-name")
+      .hasFieldOrPropertyWithValue("installDependencyUpdate", false)
+      .hasFieldOrPropertyWithValue("installWaitReady", true);
   }
 
   @Test

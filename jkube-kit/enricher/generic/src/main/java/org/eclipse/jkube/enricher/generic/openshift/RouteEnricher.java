@@ -14,6 +14,7 @@
 package org.eclipse.jkube.enricher.generic.openshift;
 
 import io.fabric8.kubernetes.api.model.HasMetadata;
+import io.fabric8.kubernetes.api.model.ServicePort;
 import io.fabric8.openshift.api.model.RouteSpec;
 import org.eclipse.jkube.kit.common.Configs;
 import org.eclipse.jkube.kit.common.util.FileUtil;
@@ -37,7 +38,7 @@ import org.eclipse.jkube.kit.enricher.api.ServiceExposer;
 
 import java.util.Objects;
 
-import static org.eclipse.jkube.enricher.generic.DefaultServiceEnricher.getPortToExpose;
+import static org.eclipse.jkube.enricher.generic.DefaultServiceEnricher.getServicePortToExpose;
 import static org.eclipse.jkube.kit.enricher.api.util.KubernetesResourceUtil.mergeMetadata;
 import static org.eclipse.jkube.kit.enricher.api.util.KubernetesResourceUtil.mergeSimpleFields;
 import static org.eclipse.jkube.kit.enricher.api.util.KubernetesResourceUtil.removeItemFromKubernetesBuilder;
@@ -120,13 +121,23 @@ public class RouteEnricher extends BaseEnricher implements ServiceExposer {
         }
     }
 
-    private static RoutePort createRoutePort(ServiceBuilder serviceBuilder) {
-        RoutePort routePort = null;
-        final Integer servicePort = getPortToExpose(serviceBuilder);
-        if (servicePort != null) {
-            routePort = new RoutePort();
-            routePort.setTargetPort(new IntOrString(servicePort));
+    private static RoutePort createRoutePort(ServicePort servicePortToExpose) {
+        RoutePort routePort = new RoutePort();
+        final String servicePortName = servicePortToExpose.getName();
+
+        if(servicePortName != null){
+            routePort.setTargetPort(new IntOrString(servicePortName));
+            return routePort;
         }
+
+        final IntOrString serviceTargetPort = servicePortToExpose.getTargetPort();
+        if( serviceTargetPort != null && serviceTargetPort.getValue() != null){
+            routePort.setTargetPort(serviceTargetPort);
+            return routePort;
+        }
+
+        final Integer servicePort =  servicePortToExpose.getPort();
+        routePort.setTargetPort(new IntOrString(servicePort));
         return routePort;
     }
 
@@ -151,7 +162,7 @@ public class RouteEnricher extends BaseEnricher implements ServiceExposer {
          * Update ApiVersion to route.openshift.io/v1. Plugin always generates an opinionated
          * Route with apiVersion 'route.openshift.io/v1'. However, when resource fragments are used
          * we get a route with apiVersion 'v1'. For more info, see:
-         *        https://github.com/eclipse/jkube/issues/383
+         *        https://github.com/eclipse-jkube/jkube/issues/383
          */
         if (routeFromFragment.getApiVersion().equals("v1")) {
             routeFromFragment.setApiVersion(opinionatedRoute.getApiVersion());
@@ -222,8 +233,17 @@ public class RouteEnricher extends BaseEnricher implements ServiceExposer {
     static Route createOpinionatedRouteFromService(ServiceBuilder serviceBuilder, String routeDomainPostfix, String tlsTermination, String edgeTerminationPolicy, boolean isRouteWithTls) {
         ObjectMeta serviceMetadata = serviceBuilder.buildMetadata();
         if (serviceMetadata != null) {
+            RoutePort routePort = null;
             String name = serviceMetadata.getName();
-            RoutePort routePort = createRoutePort(serviceBuilder);
+            final ServicePort servicePortToExpose = getServicePortToExpose(serviceBuilder);
+
+            if(servicePortToExpose != null && (
+                            servicePortToExpose.getName() != null ||
+                            servicePortToExpose.getPort() != null ||
+                            servicePortToExpose.getTargetPort() != null)){
+                routePort = createRoutePort(servicePortToExpose);
+            }
+
             if (routePort != null) {
                 RouteBuilder routeBuilder = new RouteBuilder().
                         withMetadata(serviceMetadata).

@@ -221,7 +221,7 @@ public class DockerFileBuilder {
     }
 
     private String createTempDir() {
-         return "/tmp/" + UUID.randomUUID().toString();
+         return "/tmp/" + UUID.randomUUID();
     }
 
     private void addCopyEntries(StringBuilder b, String topLevelDir) {
@@ -474,7 +474,7 @@ public class DockerFileBuilder {
 
     // All entries required, destination is relative to exportDir
     private static final class CopyEntry {
-        private String source;
+        private final String source;
         private String destination;
 
         private CopyEntry(String src, String dest) {

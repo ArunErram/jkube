@@ -13,8 +13,6 @@
  */
 package org.eclipse.jkube.gradle.plugin.task;
 
-import java.io.IOException;
-
 import org.eclipse.jkube.gradle.plugin.KubernetesExtension;
 import org.eclipse.jkube.gradle.plugin.TestKubernetesExtension;
 import org.eclipse.jkube.kit.config.image.build.JKubeBuildStrategy;
@@ -35,7 +33,7 @@ class KubernetesConfigViewTaskTest {
   private TestKubernetesExtension extension;
 
   @BeforeEach
-  void setUp() throws IOException {
+  void setUp() {
     extension = new TestKubernetesExtension();
     when(taskEnvironment.project.getExtensions().getByType(KubernetesExtension.class)).thenReturn(extension);
   }
@@ -50,6 +48,6 @@ class KubernetesConfigViewTaskTest {
     configViewTask.runTask();
     // Then
     verify(taskEnvironment.logger, times(1))
-        .lifecycle(matches("k8s: \n---\noffline: true\nbuildStrategy: \"s2i\""));
+      .lifecycle(matches(String.format("k8s: %n---\noffline: true\nbuildStrategy: \"s2i\"")));
   }
 }

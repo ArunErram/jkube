@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.mockito.MockedConstruction;
 
+import static org.apache.commons.io.FilenameUtils.separatorsToSystem;
 import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mockConstruction;
@@ -40,7 +41,7 @@ class KubernetesHelmTaskTest {
   private MockedConstruction<HelmService> helmServiceMockedConstruction;
 
   @BeforeEach
-  void setUp() throws IOException {
+  void setUp() {
     TestKubernetesExtension extension = new TestKubernetesExtension();
     extension.isUseColor = false;
     helmServiceMockedConstruction = mockConstruction(HelmService.class);
@@ -60,7 +61,7 @@ class KubernetesHelmTaskTest {
     // When & Then
     assertThatIllegalStateException()
         .isThrownBy(kubernetesHelmTask::runTask)
-        .withMessageContaining("META-INF/jkube/kubernetes")
+        .withMessageContaining(separatorsToSystem("META-INF/jkube/kubernetes"))
         .withCauseInstanceOf(NoSuchFileException.class);
   }
 

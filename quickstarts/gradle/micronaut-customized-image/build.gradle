@@ -14,10 +14,11 @@
 plugins {
     id("com.github.johnrengelman.shadow") version "7.0.0"
     id("io.micronaut.application") version "1.5.4"
-    id("org.eclipse.jkube.kubernetes") version "1.15.0"
+    id("org.eclipse.jkube.kubernetes") version "1.18.1"
+    id("org.eclipse.jkube.openshift") version "1.18.1"
 }
 
-version = "1.5.1"
+version = '1.18.0'
 group = "org.eclipse.jkube.quickstart.gradle.micronaut.custom"
 
 repositories {
@@ -40,6 +41,7 @@ dependencies {
     implementation("javax.annotation:javax.annotation-api")
     runtimeOnly("ch.qos.logback:logback-classic")
     implementation("io.micronaut:micronaut-validation")
+    implementation("io.micronaut.rxjava2:micronaut-rxjava2")
 }
 
 application {
@@ -52,12 +54,11 @@ java {
 }
 
 kubernetes {
-    buildStrategy = 'jib'
     images {
         image {
             name = "%g/%a:${project.version}"
             build {
-                from = "quay.io/jkube/jkube-java:0.0.16"
+                from = "quay.io/jkube/jkube-java:0.0.25"
                 tags = ["latest", "${project.version}"]
                 env {
                     JAVA_APP_JAR = "${project.name}-${project.version}-all.jar"

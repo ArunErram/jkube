@@ -13,29 +13,37 @@
  */
 package org.eclipse.jkube.kit.config.image.build;
 
+import lombok.Getter;
+
 /**
  * OpenShift build mode. Only used when mode is "openshift"
  *
  * @author roland
  * @since 01/08/16
  */
+@Getter
 public enum JKubeBuildStrategy {
 
     // Constants used to extract extra information from a `fromExt` build configuration
     /**
      * S2i build with a binary source
      */
-    s2i("S2I"),
+    s2i("S2I", true, true),
 
     /**
      * JIB build
      */
-    jib("Jib"),
+    jib("Jib", true, true),
 
     /**
      * Docker build with a binary source
      */
-    docker("Docker");
+    docker("Docker", true, true),
+
+    /**
+     * BuildPacks
+     */
+    buildpacks("Buildpacks", false, false);
 
     // Source strategy elements
     public enum SourceStrategy {
@@ -51,9 +59,13 @@ public enum JKubeBuildStrategy {
 
 
     private final String label;
+    private final boolean supportsWatch;
+    private final boolean supportsDebug;
 
-    JKubeBuildStrategy(String label) {
+    JKubeBuildStrategy(String label, boolean supportsWatch, boolean supportsDebug) {
         this.label = label;
+        this.supportsWatch = supportsWatch;
+        this.supportsDebug = supportsDebug;
     }
 
     /**
@@ -69,8 +81,5 @@ public enum JKubeBuildStrategy {
         );
     }
 
-    public String getLabel() {
-        return label;
-    }
 }
 

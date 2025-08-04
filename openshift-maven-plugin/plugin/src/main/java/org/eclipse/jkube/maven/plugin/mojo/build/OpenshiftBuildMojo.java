@@ -13,19 +13,16 @@
  */
 package org.eclipse.jkube.maven.plugin.mojo.build;
 
-import org.apache.maven.artifact.DependencyResolutionRequiredException;
+import org.apache.maven.plugin.MojoExecutionException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.eclipse.jkube.generator.api.GeneratorContext;
-import org.eclipse.jkube.kit.config.image.ImageConfiguration;
+import org.eclipse.jkube.kit.common.BuildRecreateMode;
 import org.eclipse.jkube.kit.config.image.build.JKubeBuildStrategy;
 import org.eclipse.jkube.kit.config.resource.RuntimeMode;
-import org.eclipse.jkube.kit.config.service.BuildServiceConfig;
 import org.eclipse.jkube.maven.plugin.mojo.OpenShift;
-
-import java.util.List;
 
 import static org.eclipse.jkube.kit.config.resource.RuntimeMode.KUBERNETES;
 
@@ -83,27 +80,25 @@ public class OpenshiftBuildMojo extends BuildMojo {
         return RuntimeMode.OPENSHIFT;
     }
 
-    public List<ImageConfiguration> customizeConfig(List<ImageConfiguration> configs) {
+    @Override
+    protected void doExecute() throws MojoExecutionException {
         if (runtimeMode == RuntimeMode.OPENSHIFT) {
             log.info("Using [[B]]OpenShift[[B]] build with strategy [[B]]%s[[B]]", getJKubeBuildStrategy().getLabel());
         }
-        return super.customizeConfig(configs);
+        super.doExecute();
     }
 
     @Override
-    protected BuildServiceConfig.BuildServiceConfigBuilder buildServiceConfigBuilder() {
-        return super.buildServiceConfigBuilder()
-            .openshiftPullSecret(openshiftPullSecret)
-            .s2iBuildNameSuffix(s2iBuildNameSuffix)
-            .s2iImageStreamLookupPolicyLocal(s2iImageStreamLookupPolicyLocal)
-            .openshiftPushSecret(openshiftPushSecret)
-            .buildOutputKind(buildOutputKind);
-    }
-
-    @Override
-    protected GeneratorContext.GeneratorContextBuilder generatorContextBuilder() throws DependencyResolutionRequiredException {
+    protected GeneratorContext.GeneratorContextBuilder generatorContextBuilder() {
         return super.generatorContextBuilder()
-            .strategy(getJKubeBuildStrategy());
+            .strategy(getJKubeBuildStrategy())
+            .openshiftForcePull(forcePull)
+            .openshiftS2iBuildNameSuffix(s2iBuildNameSuffix)
+            .openshiftS2iImageStreamLookupPolicyLocal(s2iImageStreamLookupPolicyLocal)
+            .openshiftPullSecret(openshiftPullSecret)
+            .openshiftPushSecret(openshiftPushSecret)
+            .openshiftBuildOutputKind(buildOutputKind)
+            .openshiftBuildRecreate(BuildRecreateMode.fromParameter(buildRecreate));
     }
 
     @Override
@@ -118,5 +113,4 @@ public class OpenshiftBuildMojo extends BuildMojo {
         }
         return JKubeBuildStrategy.s2i;
     }
-
 }

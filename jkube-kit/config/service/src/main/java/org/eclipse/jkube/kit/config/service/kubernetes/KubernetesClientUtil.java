@@ -26,9 +26,9 @@ import io.fabric8.kubernetes.client.NamespacedKubernetesClient;
 import io.fabric8.kubernetes.client.dsl.Resource;
 import io.fabric8.kubernetes.client.dsl.ScalableResource;
 import org.eclipse.jkube.kit.common.KitLogger;
+import org.eclipse.jkube.kit.common.access.ClusterConfiguration;
 import org.eclipse.jkube.kit.common.util.KubernetesHelper;
 import org.eclipse.jkube.kit.common.util.OpenshiftHelper;
-import org.eclipse.jkube.kit.config.access.ClusterAccess;
 import org.eclipse.jkube.kit.config.image.ImageName;
 
 import io.fabric8.kubernetes.api.model.DeletionPropagation;
@@ -119,13 +119,10 @@ public class KubernetesClientUtil {
 
     public static String getPodStatusMessagePostfix(Watcher.Action action) {
         String message = "";
-        switch (action) {
-            case DELETED:
-                message = ": Pod Deleted";
-                break;
-            case ERROR:
-                message = ": Error";
-                break;
+        if (action == Watcher.Action.DELETED) {
+            message = ": Pod Deleted";
+        } else if (action == Watcher.Action.ERROR) {
+            message = ": Error";
         }
         return message;
     }
@@ -140,21 +137,11 @@ public class KubernetesClientUtil {
             return "";
         }
 
-
-        for (PodCondition condition : conditions) {
-            String type = condition.getType();
-            if (StringUtils.isNotBlank(type)) {
-                if ("ready".equalsIgnoreCase(type)) {
-                    String statusText = condition.getStatus();
-                    if (StringUtils.isNotBlank(statusText)) {
-                        if (Boolean.parseBoolean(statusText)) {
-                            return type;
-                        }
-                    }
-                }
-            }
-        }
-        return "";
+        return conditions.stream()
+                .filter(condition -> "ready".equalsIgnoreCase(condition.getType()) && Boolean.parseBoolean(condition.getStatus()))
+                .map(PodCondition::getType)
+                .findFirst()
+                .orElse("");
     }
 
     public static GenericKubernetesResource doGetCustomResource(KubernetesClient kubernetesClient, GenericKubernetesResource resource, String namespace) {
@@ -174,8 +161,8 @@ public class KubernetesClientUtil {
         crClient.waitUntilCondition(Objects::isNull, seconds, TimeUnit.SECONDS);
     }
 
-    public static String applicableNamespace(HasMetadata resource, String namespace, ResourceConfig resourceConfig, ClusterAccess clusterAccess) {
-        return applicableNamespace(resource, namespace, resolveFallbackNamespace(resourceConfig, clusterAccess));
+    public static String applicableNamespace(HasMetadata resource, String namespace, ResourceConfig resourceConfig, ClusterConfiguration clusterConfiguration) {
+        return applicableNamespace(resource, namespace, resolveFallbackNamespace(resourceConfig, clusterConfiguration));
     }
 
     public static String applicableNamespace(HasMetadata resource, String namespace, String fallbackNamespace) {
@@ -188,11 +175,11 @@ public class KubernetesClientUtil {
         return StringUtils.isNotBlank(fallbackNamespace) ? fallbackNamespace : KubernetesHelper.getDefaultNamespace();
     }
 
-    public static String resolveFallbackNamespace(ResourceConfig resourceConfig, ClusterAccess clusterAccess) {
+    public static String resolveFallbackNamespace(ResourceConfig resourceConfig, ClusterConfiguration clusterConfiguration) {
         return Optional.ofNullable(resourceConfig)
             .map(ResourceConfig::getNamespace)
-            .orElse(Optional.ofNullable(clusterAccess)
-                .map(ClusterAccess::getNamespace)
+            .orElse(Optional.ofNullable(clusterConfiguration)
+                .map(ClusterConfiguration::getNamespace)
                 .orElse(null));
     }
 

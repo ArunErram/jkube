@@ -15,6 +15,9 @@ package org.eclipse.jkube.kit.common;
 
 import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+
+import org.assertj.core.api.InstanceOfAssertFactories;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
@@ -98,9 +101,8 @@ class JKubeConfigurationTest {
         .sourceDirectory("src/main/jkube")
         .outputDirectory("target")
         .buildArgs(Collections.singletonMap("foo", "bar"))
-        .registryConfig(RegistryConfig.builder()
-            .registry("r.example.com")
-            .build());
+        .pullRegistryConfig(RegistryConfig.builder().registry("pull.example.com").build())
+        .pushRegistryConfig(RegistryConfig.builder().registry("push.example.com").build());
 
     // When
     JKubeConfiguration jKubeConfiguration = builder.build();
@@ -111,7 +113,8 @@ class JKubeConfigurationTest {
         .hasFieldOrPropertyWithValue("sourceDirectory", "src/main/jkube")
         .hasFieldOrPropertyWithValue("outputDirectory", "target")
         .hasFieldOrPropertyWithValue("buildArgs", Collections.singletonMap("foo", "bar"))
-        .hasFieldOrPropertyWithValue("registryConfig.registry", "r.example.com");
+        .hasFieldOrPropertyWithValue("pullRegistryConfig.registry", "pull.example.com")
+        .hasFieldOrPropertyWithValue("pushRegistryConfig.registry", "push.example.com");
   }
 
   /**
@@ -120,8 +123,7 @@ class JKubeConfigurationTest {
   @Test
   void rawDeserialization() throws IOException {
     // Given
-    final ObjectMapper mapper = new ObjectMapper();
-    mapper.configure(MapperFeature.USE_ANNOTATIONS, false);
+    final ObjectMapper mapper = JsonMapper.builder().configure(MapperFeature.USE_ANNOTATIONS, false).build();
     // When
     final JKubeConfiguration result = mapper.readValue(
         JKubeConfigurationTest.class.getResourceAsStream("/jkube-configuration.json"),
@@ -133,7 +135,9 @@ class JKubeConfigurationTest {
         .hasFieldOrPropertyWithValue("sourceDirectory", "src")
         .hasFieldOrPropertyWithValue("outputDirectory", "target")
         .hasFieldOrPropertyWithValue("buildArgs.http_proxy", "127.0.0.1:8001")
-        .hasFieldOrPropertyWithValue("registryConfig.registry", "the-registry")
-        .extracting(JKubeConfiguration::getReactorProjects).asList().isEmpty();
+        .hasFieldOrPropertyWithValue("pullRegistryConfig.registry", "the-pull-registry")
+        .hasFieldOrPropertyWithValue("pushRegistryConfig.registry", "the-push-registry")
+        .extracting(JKubeConfiguration::getReactorProjects).asInstanceOf(InstanceOfAssertFactories.list(JavaProject.class))
+        .isEmpty();
   }
 }

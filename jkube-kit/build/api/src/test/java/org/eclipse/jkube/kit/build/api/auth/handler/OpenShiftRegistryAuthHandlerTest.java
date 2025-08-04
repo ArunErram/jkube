@@ -14,12 +14,12 @@
 package org.eclipse.jkube.kit.build.api.auth.handler;
 
 import java.io.File;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -127,7 +127,7 @@ class OpenShiftRegistryAuthHandlerTest {
       File kubeDir = new File(homeDir, ".kube");
       kubeDir.mkdirs();
       File config = new File(kubeDir, "config");
-      IOUtils.copy(getClass().getResourceAsStream(testConfig), new FileOutputStream(config));
+      Files.copy(new File(Objects.requireNonNull(getClass().getResource(testConfig)).getFile()).toPath(), config.toPath());
     } catch (IOException e) {
       throw new RuntimeException(e);
     }

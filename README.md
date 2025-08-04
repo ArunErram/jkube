@@ -2,14 +2,13 @@
 
 > Cloud-Native Java Applications without a hassle
 
-[![Circle CI](https://circleci.com/gh/eclipse/jkube/tree/master.svg?style=shield)](https://circleci.com/gh/eclipse/jkube/tree/master)
-[![E2E Tests](https://github.com/jkubeio/jkube-integration-tests/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/jkubeio/jkube-integration-tests/actions/workflows/e2e-tests.yml)
+[![E2E Tests](https://github.com/eclipse-jkube/jkube-integration-tests/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/eclipse-jkube/jkube-integration-tests/actions/workflows/e2e-tests.yml)
 [![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=jkubeio_jkube&metric=sqale_rating)](https://sonarcloud.io/dashboard?id=jkubeio_jkube)
 [![Coverage](https://sonarcloud.io/api/project_badges/measure?project=jkubeio_jkube&metric=coverage)](https://sonarcloud.io/dashboard?id=jkubeio_jkube)
-[![Gitter](https://badges.gitter.im/eclipse/jkube.svg)](https://gitter.im/eclipse/jkube?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
+[![Gitter](https://badges.gitter.im/eclipse-jkube/jkube.svg)](https://gitter.im/eclipse-jkube/jkube?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge)
 [![Twitter](https://img.shields.io/twitter/follow/jkubeio?style=social)](https://twitter.com/jkubeio)
 
-[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/eclipse/jkube)
+[![Open in Gitpod](https://gitpod.io/button/open-in-gitpod.svg)](https://gitpod.io/#https://github.com/eclipse-jkube/jkube)
 
 <p align="center">
   <a href="https://www.eclipse.dev/jkube/">
@@ -129,7 +128,7 @@ You can take a look at our quickstarts in [quickstarts](./quickstarts) directory
 
 ### Hello World using Eclipse JKube
 
-- Clone repository and move to quickstart [helloworld](https://github.com/eclipse/jkube/tree/master/quickstarts/maven/hello-world) sample, build project and run JKube goals:
+- Clone repository and move to quickstart [helloworld](https://github.com/eclipse-jkube/jkube/tree/master/quickstarts/maven/hello-world) sample, build project and run JKube goals:
 
 ```shell script
 # 1. Clone repository
@@ -138,7 +137,11 @@ $ git clone git@github.com:eclipse/jkube.git
 # 2. Move to Hello World Quickstart folder
 $ cd jkube/quickstarts/maven/hello-world
 
-# 3. Build Project and run JKube goals
+# 3. Configure your local environment to re-use the Docker daemon inside the Minikube instance.
+
+~ jkube/quickstarts/maven/hello-world : $ eval $(minikube -p minikube docker-env) 
+
+# 4. Build Project and run JKube goals
 $ mvn clean install                                                            \
   k8s:build         `# Build Docker Image`                                     \
   k8s:resource      `# Generate Kubernetes Manifests`                          \
@@ -150,26 +153,21 @@ $ mvn clean install                                                            \
 ```shell script
 # Using Kubectl
 $ kubectl get pods
-NAME                                       READY   STATUS        RESTARTS   AGE
-helloworld-7c4665f464-xwskj                0/1     Completed     2          27s
-$ kubectl logs jkube-sample-helloworld-7c4665f464-xwskj
-Hello World!
-# Using JKube
-$ mvn k8s:log
-[INFO] k8s:  [NEW] helloworld-7c4665f464-xwskj status: Running
-[INFO] k8s:  [NEW] Tailing log of pod: helloworld-587dfff745-2kdpq
-[INFO] k8s:  [NEW] Press Ctrl-C to stop tailing the log
-[INFO] k8s:  [NEW]
-[INFO] k8s: Hello World!
-[INFO] k8s:  [NEW] helloworld-7c4665f464-xwskj status: Running
+NAME                          READY   STATUS    RESTARTS   AGE
+helloworld-664bf5fdff-2bmrt   1/1     Running   0          9s
+$ kubectl get svc
+helloworld   NodePort    10.110.92.145   <none>        8080:32353/TCP   58m
+kubernetes   ClusterIP   10.96.0.1       <none>        443/TCP          7h
+$ curl `minikube ip`:32353/hello
+Hello World
 ```
 
 #### Troubleshooting
 
-If you experience problems using minikube that pod's status shows 'ImagePullBackOff' and not 'Completed' you must share the minikube's docker daemon environment with your shell with:
+If you experience problems using minikube that pod's status shows 'ImagePullBackOff' and not 'Running' you must share the minikube's docker daemon environment with your shell with:
 
 ```shell script
-$ eval $(minikube docker-env)
+$ eval $(minikube -p minikube docker-env) 
 ```
 
 You can remove this from your shell again with:

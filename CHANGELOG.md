@@ -13,14 +13,71 @@ After this we will switch probably to real [Semantic Versioning 2.0.0](http://se
 ## Extracting changelog portions
 We provide a script to extract changelog portions and automatic link building to send notifications
 (i.e. e-mail) about new releases
-([scripts/extract-changelog-for-version.sh](https://github.com/eclipse/jkube/blob/master/scripts/extract-changelog-for-version.sh))
+([scripts/extract-changelog-for-version.sh](https://github.com/eclipse-jkube/jkube/blob/master/scripts/extract-changelog-for-version.sh))
 
 Usage:
 ```
 # ./scripts/changelog.sh semanticVersionNumber [linkLabelStartNumber]
 ./scripts/extract-changelog-for-version.sh 1.3.37 5
 ```
-### 1.16-SNAPSHOT
+### 1.19-SNAPSHOT
+
+### 1.18.1 (2025-02-11)
+* Fix #3642: Config properties resolved for generated images
+* Fix #3660: remote-dev issue with ssh user (locked)
+
+### 1.18.0 (2025-01-15)
+* Fix #1125: Support WebFlux SpringBoot projects when it comes to generate probes for actuators
+* Fix #2844: `oc:build` on openshift use `pods/log` to retrieve logs from build
+* Fix #2375: Add support for generating helm test resources via fragments
+* Fix #2667: Add new helm test goal task (`k8s:helm-test` for maven and `k8sHelmTest` for gradle)
+* Fix #3326: Micronaut healthcheck enricher infers overridden server port in application.properties
+* Fix #3354: Build fails with `imageStream` for `buildRecreate` value
+* Fix #3578: Skip executable libs when searching Spring Boot native binary
+* Fix #3623: Updated jkube-images to 0.0.25
+
+### 1.17.0 (2024-08-13)
+* Fix #494: Support for Micronaut Framework Native Images
+* Fix #1989: Remove storageClass related fields from VolumePermissionEnricher
+* Fix #2098: Add support for multi-platform container image builds in jib build strategy
+* Fix #2110: Add new helm dependency update goal task (`k8s:helm-dependency-update` for maven and `k8sHelmDependencyUpdate` for gradle)
+* Fix #2335: Add support for configuring nodeSelector spec for controller via xml/groovy DSL configuration
+* Fix #2381: All base images provide support for Java 21
+* Fix #2459: Allow configuring Buildpacks build via ImageConfiguration
+* Fix #2462: `k8s:debug` throws error when using `buildpacks` build strategy
+* Fix #2463: Buildpacks should clear build cache when `nocache` option is enabled
+* Fix #2470: Add configuration option for overriding buildpack builder image
+* Fix #2662: Sanitize VCS remote URL used in `jkube.eclipse.org/git-url` annotation
+* Fix #2663: Add new helm install goal task (`k8s:helm-install` for maven and `k8sHelmInstall` for gradle)
+* Fix #2665: Added support for explicit path for readiness and liveness probes in SpringBootHealthCheckEnricher
+* Fix #2666: Add new helm uninstall goal task (`k8s:helm-uninstall` for maven and `k8sHelmUninstall` for gradle)
+* Fix #2860: Correctly pass Docker build-arg from the build configuration to the Openshift build strategy
+* Fix #2885: Provide a way to set labels on images defined by Generators
+* Fix #2901: Ensure Docker build arguments from properties are used during images pre-pulling
+* Fix #2904: `docker.buildArg.*` properties not taken into account in OpenShift plugins
+* Fix #2911: Base images don't use manual container detection and rely on Java's built-in mechanisms 
+* Fix #3007: Kubernetes Maven Plugin generating resource manifests with line feeds on Windows
+* Fix #3067: Helm Push uses configured docker global and push registries instead of pull 
+* Fix #3122: JKube should also pass project directory in `buildpacks` build strategy
+* Fix #3161: JavaExecGenerator should honor %t setting and not unconditionally add `latest` tag
+* Fix #2467: Add support for specifying imagePullSecrets via resource configuration
+* Fix #3220: ImageEnricher#mergeEnvVariables causes error for empty env
+* Fix #3228: Springboot 3.3.1 layertools output format breaks LayeredJarGenerator
+* Fix #3294: MicronautGenerator not getting invoked for Micronaut4 Maven project
+
+_**Note**_:
+- `defaultStorageClass` and `useStorageClassAnnotation` fields have been removed from VolumePermissionEnricher (`jkube-volume-permission`). Users are advised to use these fields from PersistentVolumeClaimStorageClassEnricher (`jkube-persistentvolumeclaim-storageclass`) instead.
+
+### 1.16.2 (2024-03-27)
+* Fix #2461: `k8s:watch`/`k8sWatch` should throw error in `buildpacks` build strategy
+* Fix #2852: Bump version.kubernetes-client from 6.10.0 to 6.11.0
+* Fix #2847: OpenShift Routes use `spec.port.targetPort` instead of `spec.port.port`
+
+### 1.16.1 (2024-02-27)
+* Fix #2582: Moved PortMapping class from package `org.eclipse.jkube.kit.build.api.model` to `org.eclipse.jkube.kit.common`
+* Fix #2726: helm-lint works seamlessly on MacOS aarch64
+
+### 1.16.0 (2024-02-09)
 * Fix #1690: Base images based on ubi9
 * Fix #1700: Add [Kubernetes Well Known labels](https://kubernetes.io/docs/concepts/overview/working-with-objects/common-labels/) to generated resources
 * Fix #2257: Provide guidance when the final project packaged file is not found in Quarkus projeicts
@@ -33,12 +90,16 @@ Usage:
 * Fix #2423: Change default VolumePermissionEnricher's initContainer image from `busybox` to `quay.io/quay/busybox`
 * Fix #2444: Add support for Spring Boot application properties placeholders
 * Fix #2456: Add utility class to decompress archive files
+* Fix #2465: Add support for `buildpacks` build strategy with opinionated defaults (Zero config)
 * Fix #2472: Support for Helm Chart.yaml appVersion field defaulting to project version
 * Fix #2474: Remove Docker-related classes providing  unused functionality
 * Fix #2477: Support for Spring Boot 3.2.0 (and newer) layered jar format
 * Fix #2500: `oc:build` does not add git annotations in Openshift Build resource
 * Fix #2503: Container Images Jolokia agent bumped to 2.0.0
 * Fix #2532: Bump version.kubernetes-client from 6.9.2 to 6.10.0
+* Fix #2613: Added new helm lint goal task (k8s:helm-lint / k8sHelmLint)
+* Fix #2541: Container image names can now be set as IPv6 addresses
+* Fix #2622: `k8s:helm` generated chart tar archive contains reference to tar archive
 
 _**Note**_:
 Kubernetes manifests generated by JKube would now contain the following labels by default:
@@ -462,7 +523,7 @@ Only the set of documented features are available to users.
 * Fix #73: Jib Support, Port of fabric8io/fabric8-maven-plugin#1766
 * Fix #195: Added MigrateMojo for migrating projects from FMP to JKube
 * Fix #238: Watch uses same logic as build to monitor changed assembly files
-* Fix #245: Debug goals work on webapp (Tomcat & Jetty) > See https://github.com/jkubeio/jkube-images/releases/tag/v0.0.7
+* Fix #245: Debug goals work on webapp (Tomcat & Jetty) > See https://github.com/eclipse-jkube/jkube-images/releases/tag/v0.0.7
 * Fix #261: DockerFileBuilder only supports \*nix paths (Dockerfile Linux only), fixed invalid default configs
 * Fix #246: Dockerfile custom interpolation is broken
 * Fix #259: Cleanup unused properties inside Mojos

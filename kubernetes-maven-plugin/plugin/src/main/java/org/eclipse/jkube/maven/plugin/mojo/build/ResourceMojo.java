@@ -17,24 +17,24 @@ import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.List;
-import java.util.Properties;
 
 import javax.validation.ConstraintViolationException;
 
+import org.apache.commons.lang3.StringUtils;
 import org.eclipse.jkube.generator.api.GeneratorContext;
-import org.eclipse.jkube.generator.api.GeneratorManager;
-import org.eclipse.jkube.kit.build.service.docker.config.handler.ImageConfigResolver;
-import org.eclipse.jkube.kit.build.service.docker.helper.ConfigHelper;
+
+import org.eclipse.jkube.generator.api.DefaultGeneratorManager;
 import org.eclipse.jkube.kit.common.KitLogger;
 import org.eclipse.jkube.kit.common.util.MavenUtil;
 import org.eclipse.jkube.kit.common.util.ResourceClassifier;
+import org.eclipse.jkube.kit.common.util.ResourceUtil;
 import org.eclipse.jkube.kit.common.util.validator.ResourceValidator;
+import org.eclipse.jkube.kit.config.image.GeneratorManager;
 import org.eclipse.jkube.kit.config.image.ImageConfiguration;
 import org.eclipse.jkube.kit.config.image.build.JKubeBuildStrategy;
 import org.eclipse.jkube.kit.config.resource.MappingConfig;
 import org.eclipse.jkube.kit.config.resource.PlatformMode;
 import org.eclipse.jkube.kit.config.resource.ProcessorConfig;
-import org.eclipse.jkube.kit.config.resource.RuntimeMode;
 import org.eclipse.jkube.kit.enricher.api.DefaultEnricherManager;
 import org.eclipse.jkube.kit.enricher.api.JKubeEnricherContext;
 import org.eclipse.jkube.kit.profile.ProfileUtil;
@@ -49,7 +49,6 @@ import org.apache.maven.plugins.annotations.Parameter;
 import org.apache.maven.plugins.annotations.ResolutionScope;
 import org.apache.maven.project.MavenProjectHelper;
 
-import static org.eclipse.jkube.kit.build.service.docker.helper.ImageNameFormatter.DOCKER_IMAGE_USER;
 import static org.eclipse.jkube.kit.common.util.BuildReferenceDateUtil.getBuildTimestamp;
 import static org.eclipse.jkube.kit.common.util.DekorateUtil.DEFAULT_RESOURCE_LOCATION;
 import static org.eclipse.jkube.kit.common.util.DekorateUtil.useDekorate;
@@ -66,9 +65,6 @@ public class ResourceMojo extends AbstractJKubeMojo {
 
     // Filename for holding the build timestamp
     public static final String DOCKER_BUILD_TIMESTAMP = "docker/build.timestamp";
-
-    @Component
-    protected ImageConfigResolver imageConfigResolver;
 
     /**
      * Should we use the project's compile-time classpath to scan for additional enrichers/generators?
@@ -113,10 +109,6 @@ public class ResourceMojo extends AbstractJKubeMojo {
     @Parameter
     private ProcessorConfig generator;
 
-    // Whether to use replica sets or replication controller. Could be configurable
-    // but for now leave it hidden.
-    private boolean useReplicaSet = true;
-
     // The image configuration after resolving and customization
     protected List<ImageConfiguration> resolvedImages;
 
@@ -156,7 +148,6 @@ public class ResourceMojo extends AbstractJKubeMojo {
 
         updateKindFilenameMappings(mappings);
         try {
-            lateInit();
             // Resolve the Docker image build configuration
             resolvedImages = getResolvedImages(images, log);
             if (!skip && (!isPomProject() || hasJKubeDir())) {
@@ -176,11 +167,6 @@ public class ResourceMojo extends AbstractJKubeMojo {
         }
     }
 
-    @Override
-    protected RuntimeMode getRuntimeMode() {
-        return RuntimeMode.KUBERNETES;
-    }
-
     protected PlatformMode getPlatformMode() {
         return PlatformMode.kubernetes;
     }
@@ -192,12 +178,12 @@ public class ResourceMojo extends AbstractJKubeMojo {
     private void validateIfRequired(File resourceDir, ResourceClassifier classifier)
         throws MojoExecutionException, MojoFailureException {
         try {
-            if (!skipResourceValidation) {
+            if (Boolean.FALSE.equals(skipResourceValidation)) {
                 log.verbose("Validating resources");
                 new ResourceValidator(resourceDir, classifier, log).validate();
             }
         } catch (ConstraintViolationException e) {
-            if (failOnValidationError) {
+            if (Boolean.TRUE.equals(failOnValidationError)) {
                 log.error("[[R]]" + e.getMessage() + "[[R]]");
                 log.error("[[R]]use \"mvn -Djkube.skipResourceValidation=true\" option to skip the validation[[R]]");
                 throw new MojoFailureException("Failed to generate kubernetes descriptor");
@@ -205,27 +191,10 @@ public class ResourceMojo extends AbstractJKubeMojo {
                 log.warn("[[Y]]" + e.getMessage() + "[[Y]]");
             }
         } catch (Exception e) {
-            if (failOnValidationError) {
+            if (Boolean.TRUE.equals(failOnValidationError)) {
                 throw new MojoExecutionException("Failed to validate resources", e);
             } else {
                 log.warn("Failed to validate resources: %s", e.getMessage());
-            }
-        }
-    }
-
-    private void lateInit() {
-        RuntimeMode runtimeMode = getRuntimeMode();
-        jkubeServiceHub.setPlatformMode(runtimeMode);
-        if (runtimeMode.equals(RuntimeMode.OPENSHIFT)) {
-            Properties properties = javaProject.getProperties();
-            if (!properties.contains(DOCKER_IMAGE_USER)) {
-                String namespaceToBeUsed = this.namespace != null && !this.namespace.isEmpty() ?
-                        this.namespace: clusterAccess.getNamespace();
-                log.info("Using docker image name of namespace: " + namespaceToBeUsed);
-                properties.setProperty(DOCKER_IMAGE_USER, namespaceToBeUsed);
-            }
-            if (!properties.contains(RuntimeMode.JKUBE_EFFECTIVE_PLATFORM_MODE)) {
-                properties.setProperty(RuntimeMode.JKUBE_EFFECTIVE_PLATFORM_MODE, runtimeMode.toString());
             }
         }
     }
@@ -247,42 +216,26 @@ public class ResourceMojo extends AbstractJKubeMojo {
         return jkubeServiceHub.getResourceService().generateResources(getPlatformMode(), enricherManager, log);
     }
 
-    private ProcessorConfig extractEnricherConfig() throws IOException {
+    private ProcessorConfig extractEnricherConfig() {
         return ProfileUtil.blendProfileWithConfiguration(ProfileUtil.ENRICHER_CONFIG, profile,
           jkubeServiceHub.getResourceServiceConfig().getResourceDirs(), enricher);
     }
 
-    private ProcessorConfig extractGeneratorConfig() throws IOException {
-        return ProfileUtil.blendProfileWithConfiguration(ProfileUtil.GENERATOR_CONFIG, profile,
-          jkubeServiceHub.getResourceServiceConfig().getResourceDirs(), generator);
-    }
-
     // ==================================================================================
 
-    private List<ImageConfiguration> getResolvedImages(List<ImageConfiguration> images, final KitLogger log)
-        throws IOException {
-      return ConfigHelper.initImageConfiguration(
-          getBuildTimestamp(getPluginContext(), CONTEXT_KEY_BUILD_TIMESTAMP, project.getBuild().getDirectory(),
-              DOCKER_BUILD_TIMESTAMP),
-          images, imageConfigResolver,
-          log,
-          null, // no filter on image name yet (TODO: Maybe add this, too ?)
-          configs -> {
-            try {
-              GeneratorContext ctx = GeneratorContext.builder()
-                  .config(extractGeneratorConfig())
-                  .project(javaProject)
-                  .runtimeMode(getRuntimeMode())
-                  .logger(log)
-                  .strategy(JKubeBuildStrategy.docker)
-                  .useProjectClasspath(useProjectClasspath)
-                  .build();
-              return GeneratorManager.generate(configs, ctx, true);
-            } catch (Exception e) {
-              throw new IllegalArgumentException("Cannot extract generator: " + e, e);
-            }
-          },
-          jkubeServiceHub.getConfiguration());
+    private List<ImageConfiguration> getResolvedImages(List<ImageConfiguration> images, final KitLogger log) {
+        GeneratorManager generatorManager = new DefaultGeneratorManager(GeneratorContext.builder()
+            .config(ProfileUtil.blendProfileWithConfiguration(ProfileUtil.GENERATOR_CONFIG, profile, ResourceUtil.getFinalResourceDirs(resourceDir, environment), generator))
+            .project(javaProject)
+            .logger(log)
+            .runtimeMode(getRuntimeMode())
+            .useProjectClasspath(useProjectClasspath)
+            .strategy(JKubeBuildStrategy.docker)
+            .prePackagePhase(true)
+            .openshiftNamespace(StringUtils.isNotBlank(this.namespace) ? this.namespace: clusterConfiguration.getNamespace())
+            .buildTimestamp(getBuildTimestamp(getPluginContext(), CONTEXT_KEY_BUILD_TIMESTAMP, project.getBuild().getDirectory(), DOCKER_BUILD_TIMESTAMP))
+            .build());
+        return generatorManager.generateAndMerge(images);
     }
 
     private boolean hasJKubeDir() {

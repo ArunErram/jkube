@@ -20,7 +20,7 @@ import java.nio.file.Path;
 import java.util.Properties;
 
 import org.eclipse.jkube.kit.common.util.AnsiLogger;
-import org.eclipse.jkube.kit.config.access.ClusterAccess;
+import org.eclipse.jkube.kit.config.service.DebugContext;
 import org.eclipse.jkube.kit.config.service.JKubeServiceHub;
 
 import io.fabric8.openshift.client.OpenShiftClient;
@@ -30,13 +30,11 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNotNull;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
@@ -49,7 +47,6 @@ import static org.mockito.Mockito.withSettings;
 class DebugMojoTest {
 
   private MockedConstruction<JKubeServiceHub> jKubeServiceHubMockedConstruction;
-  private MockedConstruction<ClusterAccess> clusterAccessMockedConstruction;
   private File kubernetesManifestFile;
   private MavenProject mavenProject;
 
@@ -63,7 +60,6 @@ class DebugMojoTest {
           doReturn(oc).when(oc).adapt(OpenShiftClient.class);
           when(mock.getClient()).thenReturn(oc);
         });
-    clusterAccessMockedConstruction = mockConstruction(ClusterAccess.class);
     kubernetesManifestFile = Files.createFile(temporaryFolder.resolve("kubernetes.yml")).toFile();
     mavenProject = mock(MavenProject.class);
     when(mavenProject.getProperties()).thenReturn(new Properties());
@@ -79,7 +75,6 @@ class DebugMojoTest {
 
   @AfterEach
   void tearDown() {
-    clusterAccessMockedConstruction.close();
     jKubeServiceHubMockedConstruction.close();
     mavenProject = null;
     debugMojo = null;
@@ -87,16 +82,16 @@ class DebugMojoTest {
 
   @Test
   void execute() throws Exception {
+    // Given
+    ArgumentCaptor<DebugContext> debugContextArgumentCaptor = ArgumentCaptor.forClass(DebugContext.class);
     // When
     debugMojo.execute();
     // Then
     assertThat(jKubeServiceHubMockedConstruction.constructed()).singleElement()
-        .satisfies(jks -> verify(jks.getDebugService(), times(1)).debug(
-            isNull(),
-            eq("kubernetes.yml"),
-            isNotNull(),
-            isNull(),
-            eq(false),
-            any(AnsiLogger.class)));
+        .satisfies(jks -> verify(jks.getDebugService(), times(1)).debug(debugContextArgumentCaptor.capture(), any()));
+    assertThat(debugContextArgumentCaptor.getValue())
+        .hasFieldOrPropertyWithValue("fileName", "kubernetes.yml")
+        .hasFieldOrPropertyWithValue("debugSuspend", false)
+        .satisfies(d -> assertThat(d.getPodWaitLog()).isInstanceOf(AnsiLogger.class));
   }
 }

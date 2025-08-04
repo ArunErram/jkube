@@ -36,9 +36,9 @@ import java.util.Objects;
 
 public class ImageChangeTriggerEnricher extends BaseEnricher {
     private static final String ENRICHER_NAME = "jkube-openshift-imageChangeTrigger";
-    private final Boolean enableAutomaticTrigger;
-    private final Boolean enableImageChangeTrigger;
-    private final Boolean trimImageInContainerSpecFlag;
+    private final boolean enableAutomaticTrigger;
+    private final boolean enableImageChangeTrigger;
+    private final boolean trimImageInContainerSpecFlag;
 
 
     @AllArgsConstructor
@@ -79,8 +79,7 @@ public class ImageChangeTriggerEnricher extends BaseEnricher {
                     }
                 }
                 // add a new image change trigger for the build stream
-                if (containerToImageMap.size() != 0) {
-                    if(enableImageChangeTrigger && isOpenShiftMode()) {
+            if (!containerToImageMap.isEmpty() && enableImageChangeTrigger && isOpenShiftMode()) {
                         for (Map.Entry<String, String> entry : containerToImageMap.entrySet()) {
                             String containerName = entry.getKey();
 
@@ -106,17 +105,17 @@ public class ImageChangeTriggerEnricher extends BaseEnricher {
                         }
                     }
 
-                }
+
             }
         });
     }
 
-    private Boolean isImageChangeTriggerNeeded(String containerName) {
+    private boolean isImageChangeTriggerNeeded(String containerName) {
         String containersFromConfig = Configs.asString(getConfig(Config.CONTAINERS));
-        Boolean enrichAll = getValueFromConfig(ENRICH_ALL_WITH_IMAGE_TRIGGERS, false);
+        boolean enrichAll = getValueFromConfig(ENRICH_ALL_WITH_IMAGE_TRIGGERS, false);
         JKubeBuildStrategy buildStrategy = getContext().getConfiguration().getJKubeBuildStrategy();
 
-        if (Boolean.TRUE.equals(enrichAll)) {
+        if (enrichAll) {
             return true;
         }
 

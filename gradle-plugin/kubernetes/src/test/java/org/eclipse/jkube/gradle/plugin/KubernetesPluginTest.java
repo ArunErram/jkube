@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.eclipse.jkube.gradle.plugin.task.JKubeTask;
 import org.eclipse.jkube.gradle.plugin.task.KubernetesApplyTask;
 import org.eclipse.jkube.gradle.plugin.task.KubernetesBuildTask;
+import org.eclipse.jkube.gradle.plugin.task.KubernetesHelmInstallTask;
 import org.eclipse.jkube.gradle.plugin.task.KubernetesHelmTask;
 import org.eclipse.jkube.gradle.plugin.task.KubernetesResourceTask;
 
@@ -81,12 +82,17 @@ class KubernetesPluginTest {
     final Map<String, Collection<Class<? extends Task>>> result = new KubernetesPlugin().getTaskPrecedence();
     // Then
     assertThat(result)
-        .hasSize(5)
+        .hasSize(10)
         .containsEntry("k8sApply", Collections.singletonList(KubernetesResourceTask.class))
         .containsEntry("k8sDebug",
             Arrays.asList(KubernetesBuildTask.class, KubernetesResourceTask.class, KubernetesApplyTask.class))
         .containsEntry("k8sPush", Collections.singletonList(KubernetesBuildTask.class))
         .containsEntry("k8sHelm", Collections.singletonList(KubernetesResourceTask.class))
-        .containsEntry("k8sHelmPush", Collections.singletonList(KubernetesHelmTask.class));
+        .containsEntry("k8sHelmDependencyUpdate", Collections.singletonList(KubernetesHelmTask.class))
+        .containsEntry("k8sHelmPush", Collections.singletonList(KubernetesHelmTask.class))
+        .containsEntry("k8sHelmLint", Collections.singletonList(KubernetesHelmTask.class))
+        .containsEntry("k8sHelmInstall", Collections.singletonList(KubernetesHelmTask.class))
+        .containsEntry("k8sHelmUninstall", Arrays.asList(KubernetesHelmTask.class, KubernetesHelmInstallTask.class))
+        .containsEntry("k8sHelmTest", Arrays.asList(KubernetesHelmTask.class, KubernetesHelmInstallTask.class));
   }
 }

@@ -23,7 +23,8 @@ import java.util.Set;
  */
 public class ValidationUtil {
 
-    private ValidationUtil() { }
+    private ValidationUtil() {
+    }
 
     public static String createValidationMessage(Set<ConstraintViolation<?>> constraintViolations) {
         if (constraintViolations.isEmpty()) {
@@ -39,10 +40,15 @@ public class ValidationUtil {
                 HasMetadata hasMetadata = (HasMetadata) leafBean;
                 ObjectMeta metadata = hasMetadata.getMetadata();
                 if (metadata != null) {
-                    leafBean = "" + hasMetadata.getKind() + ": " + metadata;
+                    leafBean = hasMetadata.getKind() + ": " + metadata;
                 }
             }
-            builder.append(violation.getPropertyPath() + " " + violation.getMessage() + " on bean: " + leafBean);
+            builder.append(violation.getPropertyPath())
+                    .append(" ")
+                    .append(violation.getMessage())
+                    .append(" on bean: ")
+                    .append(leafBean);
+
         }
         return builder.toString();
     }

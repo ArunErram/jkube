@@ -13,8 +13,6 @@
  */
 package org.eclipse.jkube.maven.plugin.mojo.develop;
 
-import org.apache.maven.plugin.MojoExecutionException;
-import org.apache.maven.plugin.MojoFailureException;
 import org.apache.maven.plugins.annotations.LifecyclePhase;
 import org.apache.maven.plugins.annotations.Mojo;
 import org.apache.maven.plugins.annotations.Parameter;
@@ -34,7 +32,7 @@ public class RemoteDevMojo extends AbstractJKubeMojo {
   protected RemoteDevelopmentConfig remoteDevelopment;
 
   @Override
-  public void executeInternal() throws MojoExecutionException, MojoFailureException {
+  public void executeInternal() {
     final RemoteDevelopmentService remoteDevelopmentService =
       new RemoteDevelopmentService(jkubeServiceHub.getLog(), jkubeServiceHub.getClient(), remoteDevelopment);
     Runtime.getRuntime().addShutdownHook(new Thread(() -> {

@@ -14,7 +14,6 @@
 package org.eclipse.jkube.maven.plugin.mojo.develop;
 
 import java.io.File;
-import java.io.IOException;
 import java.net.URL;
 import java.util.List;
 
@@ -29,7 +28,6 @@ import org.eclipse.jkube.kit.common.util.MavenUtil;
 import org.eclipse.jkube.kit.common.util.ResourceUtil;
 import org.eclipse.jkube.kit.common.JKubeConfiguration;
 import org.eclipse.jkube.kit.config.resource.ProcessorConfig;
-import org.eclipse.jkube.kit.config.resource.ResourceConfig;
 import org.eclipse.jkube.kit.enricher.api.util.KubernetesResourceUtil;
 import org.eclipse.jkube.kit.profile.ProfileUtil;
 import org.eclipse.jkube.maven.plugin.mojo.ManifestProvider;
@@ -72,11 +70,6 @@ public class WatchMojo extends AbstractDockerMojo implements ManifestProvider {
     @Parameter(property = "jkube.kubernetesManifest", defaultValue = DEFAULT_KUBERNETES_MANIFEST)
     protected File kubernetesManifest;
 
-    @Parameter(property = "jkube.namespace")
-    protected String namespace;
-    @Parameter
-    protected ResourceConfig resources;
-
     /**
      * Watcher specific options. This is a generic prefix where the keys have the form
      * <code>&lt;watcher-prefix&gt;-&lt;option&gt;</code>.
@@ -102,7 +95,7 @@ public class WatchMojo extends AbstractDockerMojo implements ManifestProvider {
             WatcherContext context = getWatcherContext();
 
             WatcherManager.watch(getResolvedImages(),
-                applicableNamespace(null, namespace, resources, clusterAccess),
+                applicableNamespace(null, namespace, resources, clusterConfiguration),
                 appliedK8sResources,
                 context);
 
@@ -121,45 +114,40 @@ public class WatchMojo extends AbstractDockerMojo implements ManifestProvider {
             return WatcherContext.builder()
                     .buildContext(buildContext)
                     .watchContext(watchContext)
-                    .config(extractWatcherConfig())
+                    .config(ProfileUtil.blendProfileWithConfiguration(ProfileUtil.WATCHER_CONFIG, profile, ResourceUtil.getFinalResourceDirs(resourceDir, environment), watcher))
                     .logger(log)
                     .newPodLogger(createLogger("[[C]][NEW][[C]] "))
                     .oldPodLogger(createLogger("[[R]][OLD][[R]] "))
                     .useProjectClasspath(useProjectClasspath)
                     .jKubeServiceHub(jkubeServiceHub)
+                    .jKubeBuildStrategy(getJKubeBuildStrategy())
                     .build();
         } catch (DependencyResolutionRequiredException dependencyException) {
             throw new MojoExecutionException("Instructed to use project classpath, but cannot. Continuing build if we can: " + dependencyException.getMessage());
-        } catch (IOException ioException) {
-            throw new MojoExecutionException(ioException.getMessage());
         }
     }
 
     @Override
-    protected GeneratorContext.GeneratorContextBuilder generatorContextBuilder() throws DependencyResolutionRequiredException {
+    protected GeneratorContext.GeneratorContextBuilder generatorContextBuilder() {
         return GeneratorContext.builder()
-            .config(extractGeneratorConfig())
-            .project(MavenUtil.convertMavenProjectToJKubeProject(project, session))
+            .config(ProfileUtil.blendProfileWithConfiguration(ProfileUtil.GENERATOR_CONFIG, profile, ResourceUtil.getFinalResourceDirs(resourceDir, environment), generator))
+            .project(javaProject)
             .logger(log)
             .runtimeMode(getConfiguredRuntimeMode())
             .useProjectClasspath(useProjectClasspath)
+            .prePackagePhase(false)
+            .sourceDirectory(sourceDirectory)
+            .useProjectClasspath(useProjectClasspath)
+            .buildTimestamp(getBuildTimestamp(getPluginContext(), CONTEXT_KEY_BUILD_TIMESTAMP, project.getBuild().getDirectory(),
+                DOCKER_BUILD_TIMESTAMP))
             .generatorMode(GeneratorMode.WATCH);
-    }
-
-    // Get watcher config
-    private ProcessorConfig extractWatcherConfig() {
-        try {
-            return ProfileUtil.blendProfileWithConfiguration(ProfileUtil.WATCHER_CONFIG, profile, ResourceUtil.getFinalResourceDirs(resourceDir, environment), watcher);
-        } catch (IOException e) {
-            throw new IllegalArgumentException("Cannot extract watcher config: " + e, e);
-        }
     }
 
     protected KitLogger createLogger(String prefix) {
         return new AnsiLogger(getLog(), useColor, verbose, !settings.getInteractiveMode(), getLogPrefix() + prefix);
     }
 
-    protected WatchContext getWatchContext() throws DependencyResolutionRequiredException, IOException {
+    protected WatchContext getWatchContext() throws DependencyResolutionRequiredException {
         final DockerServiceHub hub = jkubeServiceHub.getDockerServiceHub();
         return WatchContext.builder()
                 .watchInterval(watchInterval)

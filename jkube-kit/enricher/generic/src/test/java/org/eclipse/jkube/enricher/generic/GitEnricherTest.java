@@ -190,7 +190,7 @@ class GitEnricherTest {
             git = Git.init().setDirectory(baseDirectory).setInitialBranch("test-branch").call();
             git.add().addFilepattern(".").call();
             git.remoteAdd().setName("origin").setUri(new URIish("https://example.com/origin.git")).call();
-            commit = git.commit().setMessage("Initial commit").call();
+            commit = git.commit().setMessage("Initial commit").setSign(false).call();
         }
 
 
@@ -232,6 +232,26 @@ class GitEnricherTest {
         void whenGitRemotePropertySpecified_thenUseProvidedGitRemoteInAnnotations() throws Exception {
             // Given
             git.remoteAdd().setName("upstream").setUri(new URIish("https://example.com/upstream.git")).call();
+            properties.put("jkube.remoteName", "upstream");
+
+            // When
+            gitEnricher.enrich(PlatformMode.kubernetes, klb);
+
+            // Then
+            HasMetadata result = klb.buildFirstItem();
+            assertThat(result)
+                .extracting("metadata.annotations")
+                .asInstanceOf(InstanceOfAssertFactories.MAP)
+                .containsEntry("jkube.eclipse.org/git-branch", "test-branch")
+                .containsEntry("jkube.eclipse.org/git-commit", commit.getName())
+                .containsEntry("jkube.eclipse.org/git-url", "https://example.com/upstream.git");
+        }
+
+        @Test
+        @DisplayName("jkube.remoteName contains user crendentials, then sanitize git remote url")
+        void whenGitRemoteUrlContainsUserCredentials_thenSanitizeGitRemoteUrl() throws Exception {
+            // Given
+            git.remoteAdd().setName("upstream").setUri(new URIish("https://user:token@example.com/upstream.git")).call();
             properties.put("jkube.remoteName", "upstream");
 
             // When

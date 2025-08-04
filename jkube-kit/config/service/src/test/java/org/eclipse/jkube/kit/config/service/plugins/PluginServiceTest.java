@@ -13,7 +13,6 @@
  */
 package org.eclipse.jkube.kit.config.service.plugins;
 
-
 import org.apache.commons.io.FileUtils;
 import org.eclipse.jkube.api.JKubePlugin;
 import org.eclipse.jkube.kit.common.JKubeConfiguration;
@@ -52,7 +51,7 @@ class PluginServiceTest {
   @BeforeEach
   void setUp() {
     logger = spy(new KitLogger.SilentLogger());
-    jKubeServiceHub = new JKubeServiceHub(null, RuntimeMode.KUBERNETES, logger, null,
+    jKubeServiceHub = new JKubeServiceHub(RuntimeMode.KUBERNETES, logger, null,
       JKubeConfiguration.builder()
         .project(JavaProject.builder()
           .outputDirectory(temporaryFolder)

@@ -26,8 +26,11 @@ import org.eclipse.jgit.api.errors.GitAPIException;
 import org.eclipse.jgit.lib.Repository;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.eclipse.jkube.kit.common.util.GitUtil.sanitizeRemoteUrl;
 
 /**
  * Enricher for adding build metadata:
@@ -53,7 +56,7 @@ public class GitEnricher extends BaseEnricher {
             try (Repository repository = GitUtil.getGitRepository(getContext().getProjectDirectory())) {
                 // Git annotations (if git is used as SCM)
                 if (repository != null) {
-                    String gitRemoteUrl =  getGitRemoteUrl(repository);
+                    String gitRemoteUrl =  sanitizeRemoteUrl(getGitRemoteUrl(repository));
                     if (gitRemoteUrl == null) {
                         log.warn("Could not detect any git remote");
                     }
@@ -63,7 +66,7 @@ public class GitEnricher extends BaseEnricher {
                 return annotations;
             } catch (IOException | GitAPIException e) {
                 log.error("Cannot extract Git information for adding to annotations: " + e, e);
-                return null;
+                return Collections.emptyMap();
             }
         }
 

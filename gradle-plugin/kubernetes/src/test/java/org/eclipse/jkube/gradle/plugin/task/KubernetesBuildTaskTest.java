@@ -13,7 +13,6 @@
  */
 package org.eclipse.jkube.gradle.plugin.task;
 
-import java.io.IOException;
 import java.util.Collections;
 
 import org.eclipse.jkube.gradle.plugin.KubernetesExtension;
@@ -56,7 +55,7 @@ class KubernetesBuildTaskTest {
   private boolean isBuildError;
 
   @BeforeEach
-  void setUp() throws IOException {
+  void setUp() {
     // Mock required for environments with no DOCKER available (don't remove)
     dockerAccessFactoryMockedConstruction = mockConstruction(DockerAccessFactory.class,
       (mock, ctx) -> when(mock.createDockerAccess(any())).thenReturn(mock(DockerAccess.class)));
@@ -137,4 +136,5 @@ class KubernetesBuildTaskTest {
     assertThat(dockerBuildServiceMockedConstruction.constructed()).isEmpty();
     verify(buildTask.jKubeServiceHub.getBuildService(), times(0)).build(any());
   }
+
 }

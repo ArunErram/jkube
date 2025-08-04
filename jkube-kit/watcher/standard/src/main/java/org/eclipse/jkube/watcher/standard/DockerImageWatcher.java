@@ -22,7 +22,7 @@ import java.util.List;
 
 import org.eclipse.jkube.kit.build.service.docker.DockerServiceHub;
 import org.eclipse.jkube.kit.build.service.docker.WatchService;
-import org.eclipse.jkube.kit.build.service.docker.helper.ImageNameFormatter;
+import org.eclipse.jkube.kit.build.api.helper.ImageNameFormatter;
 import org.eclipse.jkube.kit.build.service.docker.watch.WatchContext;
 import org.eclipse.jkube.kit.build.service.docker.watch.WatchException;
 import org.eclipse.jkube.kit.common.util.KubernetesHelper;
@@ -86,7 +86,7 @@ public class DockerImageWatcher extends BaseWatcher {
     @Override
     public boolean isApplicable(List<ImageConfiguration> configs, Collection<HasMetadata> resources, PlatformMode mode) {
         // TODO: There's no reason for this watcher to work only on Kubernetes at least for some of the modes
-        // https://github.com/eclipse/jkube/issues/422
+        // https://github.com/eclipse-jkube/jkube/issues/422
         return mode == PlatformMode.kubernetes;
     }
 
@@ -160,21 +160,21 @@ public class DockerImageWatcher extends BaseWatcher {
             Deployment resource = (Deployment) entity;
             DeploymentSpec spec = resource.getSpec();
             if (spec != null && updateImageName(entity, spec.getTemplate(), imagePrefix, imageName)) {
-                kubernetes.apps().deployments().inNamespace(namespace).resource(resource).replace();
+                kubernetes.apps().deployments().inNamespace(namespace).resource(resource).unlock().update();
                 kubernetes.apps().deployments().inNamespace(namespace).withName(name).rolling().restart();
             }
         } else if (entity instanceof ReplicaSet) {
             ReplicaSet resource = (ReplicaSet) entity;
             ReplicaSetSpec spec = resource.getSpec();
             if (spec != null && updateImageName(entity, spec.getTemplate(), imagePrefix, imageName)) {
-                kubernetes.apps().replicaSets().inNamespace(namespace).resource(resource).replace();
+                kubernetes.apps().replicaSets().inNamespace(namespace).resource(resource).unlock().update();
                 kubernetes.apps().replicaSets().inNamespace(namespace).withName(name).rolling().restart();
             }
         } else if (entity instanceof ReplicationController) {
             ReplicationController resource = (ReplicationController) entity;
             ReplicationControllerSpec spec = resource.getSpec();
             if (spec != null && updateImageName(entity, spec.getTemplate(), imagePrefix, imageName)) {
-                kubernetes.replicationControllers().inNamespace(namespace).resource(resource).replace();
+                kubernetes.replicationControllers().inNamespace(namespace).resource(resource).unlock().update();
                 kubernetes.replicationControllers().inNamespace(namespace).withName(name).rolling().restart();
             }
         } else if (entity instanceof DeploymentConfig) {
@@ -185,7 +185,7 @@ public class DockerImageWatcher extends BaseWatcher {
                 if (openshiftClient == null) {
                     log.warn("Ignoring DeploymentConfig %s as not connected to an OpenShift cluster", name);
                 } else {
-                    openshiftClient.deploymentConfigs().inNamespace(namespace).resource(resource).replace();
+                    openshiftClient.deploymentConfigs().inNamespace(namespace).resource(resource).unlock().update();
                 }
             }
         }
